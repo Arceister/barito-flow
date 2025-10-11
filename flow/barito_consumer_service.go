@@ -49,7 +49,7 @@ type baritoConsumerService struct {
 	groupID            string
 	uniqueGroupID      bool
 	elasticUrls        []string
-	esClient           *elasticClient
+	esClient           Elastic
 	topicPrefix        string
 	topicSuffix        string
 	kafkaMaxRetry      int
@@ -98,17 +98,30 @@ func NewBaritoConsumerService(params map[string]interface{}) BaritoConsumerServi
 		httpClient = s.newHttpClientWithTLS(params["elasticCaCrt"].(string), params["elasticClientCrt"].(string), params["elasticClientKey"].(string))
 	}
 
-	retrier := s.elasticRetrier()
-	esConfig := params["esConfig"].(esConfig)
-	elastic, err := NewElastic(retrier, esConfig, s.elasticUrls, s.elasticUsername, s.elasticPassword, httpClient)
+	var elasticClient Elastic
+	if params["elasticType"].(string) == "elasticsearch" {
+		retrier := s.elasticRetrier()
+		esConfig := params["esConfig"].(esConfig)
+		elastic, err := NewElastic(retrier, esConfig, s.elasticUrls, s.elasticUsername, s.elasticPassword, httpClient)
+		if err != nil {
+			s.logError(errkit.Concat(ErrElasticsearchClient, err))
+			prome.IncreaseConsumerElasticsearchClientFailed(prome.ESClientFailedPhaseInit)
+		}
+		elasticClient = &elastic
+	} else if params["elasticType"].(string) == "opensearch" {
+		osConfig := params["osConfig"].(openSearchConfig)
+		openSearchClient, err := NewOpenSearch(osConfig, s.elasticUrls, s.elasticUsername, s.elasticPassword, httpClient)
+		if err != nil {
+			s.logError(errkit.Concat(ErrElasticsearchClient, err))
+			prome.IncreaseConsumerOpensearchClientFailed(prome.ESClientFailedPhaseInit)
+		}
+		elasticClient = openSearchClient
+	}
+
 	if s.redactor != nil {
-		elastic.WithRedactor(s.redactor)
+		elasticClient.WithRedactor(s.redactor)
 	}
-	s.esClient = &elastic
-	if err != nil {
-		s.logError(errkit.Concat(ErrElasticsearchClient, err))
-		prome.IncreaseConsumerElasticsearchClientFailed(prome.ESClientFailedPhaseInit)
-	}
+	s.esClient = elasticClient
 
 	return s
 }

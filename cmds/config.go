@@ -57,11 +57,16 @@ const (
 
 	EnvPrintTPS = "BARITO_PRINT_TPS"
 
+	EnvElasticType = "BARITO_ELASTIC_TYPE"
+
 	EnvElasticUsername  = "ELASTIC_USERNAME"
 	EnvElasticPassword  = "ELASTIC_PASSWORD"
 	EnvElasticCaCrt     = "BARITO_CONSUMER_ELASTICSEARCH_CA_CERT"
 	EnvElasticClientCrt = "BARITO_CONSUMER_ELASTICSEARCH_CLIENT_CERT"
 	EnvElasticClientKey = "BARITO_CONSUMER_ELASTICSEARCH_CLIENT_KEY"
+
+	EnvOpenSearchNumOfShards   = "BARITO_OPENSEARCH_NUM_OF_SHARDS"
+	EnvOpenSearchNumOfReplicas = "BARITO_OPENSEARCH_NUM_OF_REPLICAS"
 
 	EnvRateLimiterOpt = "BARITO_RATE_LIMITER_OPT"
 	EnvRedisUrl       = "BARITO_REDIS_URL"
@@ -375,6 +380,18 @@ func configRedisKeyPrefix() (s string) {
 
 func configConsulRedisName() (s string) {
 	return stringEnvOrDefault(EnvConsulRedisName, DefaultConsulRedisName)
+}
+
+func configOpenSearchNumOfShards() (i int) {
+	return intEnvOrDefault(EnvOpenSearchNumOfShards, 1)
+}
+
+func configOpenSearchNumOfReplicas() (i int) {
+	return intEnvOrDefault(EnvOpenSearchNumOfReplicas, 1)
+}
+
+func configElasticType() (s string) {
+	return stringEnvOrDefault(EnvElasticType, "elasticsearch")
 }
 
 func stringEnvOrDefault(key, defaultValue string) string {

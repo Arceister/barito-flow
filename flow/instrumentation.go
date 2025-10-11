@@ -18,6 +18,24 @@ func instruESCreateIndex(err error) {
 	}
 }
 
+func instruOSStore(appSecret string, err error) {
+	InstruApplicationSecret(appSecret)
+	label := fmt.Sprintf("%s_os_store", appSecret)
+	if err != nil {
+		instru.Count(label).Event("fail")
+	} else {
+		instru.Count(label).Event("success")
+	}
+}
+
+func instruOSCreateIndex(err error) {
+	if err != nil {
+		instru.Count("os_create_index").Event("fail")
+	} else {
+		instru.Count("os_create_index").Event("success")
+	}
+}
+
 func instruESStore(appSecret string, err error) {
 	InstruApplicationSecret(appSecret)
 	label := fmt.Sprintf("%s_es_store", appSecret)

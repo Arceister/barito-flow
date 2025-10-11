@@ -17,7 +17,7 @@ import (
 	"github.com/zekroTJA/timedmap"
 )
 
-var counter int = 0
+var elasticCounter int = 0
 
 const (
 	DEFAULT_ELASTIC_DOCUMENT_TYPE = "_doc"
@@ -30,8 +30,10 @@ const (
 type Elastic interface {
 	OnFailure(f func(*pb.Timber))
 	Store(ctx context.Context, timber pb.Timber) error
-	NewClient()
+	WithRedactor(r Redactor)
 }
+
+var _ Elastic = (*elasticClient)(nil)
 
 type elasticClient struct {
 	client                             *elastic.Client
@@ -154,17 +156,16 @@ func printThroughputPerSecond() {
 		for range t.C {
 			fmt.Println()
 			fmt.Println("-------------------------------------")
-			fmt.Println("PROCESSED:   ", counter)
+			fmt.Println("PROCESSED:   ", elasticCounter)
 			fmt.Println("-------------------------------------")
 			fmt.Println()
-			counter = 0
+			elasticCounter = 0
 		}
 	}()
 }
 
-func (e *elasticClient) WithRedactor(r Redactor) *elasticClient {
+func (e *elasticClient) WithRedactor(r Redactor) {
 	e.redactor = r
-	return e
 }
 
 func (e *elasticClient) ensureIndexIsExistsRegularIndex(ctx context.Context, indexName string) bool {
@@ -253,7 +254,7 @@ func (e *elasticClient) Store(ctx context.Context, timber pb.Timber) (err error)
 	}
 
 	err = e.onStoreFunc(ctx, indexName, documentType, redactDocument)
-	counter++
+	elasticCounter++
 	instruESStore(appSecret, err)
 
 	return

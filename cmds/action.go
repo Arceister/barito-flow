@@ -44,6 +44,7 @@ func ActionBaritoConsumerService(c *cli.Context) (err error) {
 	esBulkSize := configEsBulkSize()
 	esFlushIntervalMs := configEsFlushIntervalMs()
 	printTPS := configPrintTPS()
+	elasticType := configElasticType()
 	elasticUsername := configElasticUsername()
 	elasticPassword := configElasticPassword()
 
@@ -70,6 +71,11 @@ func ActionBaritoConsumerService(c *cli.Context) (err error) {
 		configEsDatastreamDefaultComponentTemplateName(),
 	)
 
+	openSearchConfig := flow.NewOpenSearchConfig(
+		configOpenSearchNumOfShards(),
+		configOpenSearchNumOfReplicas(),
+	)
+
 	consumerParams := map[string]interface{}{
 		"factory":                factory,
 		"groupID":                groupID,
@@ -82,9 +88,11 @@ func ActionBaritoConsumerService(c *cli.Context) (err error) {
 		"newTopicEventName":      newTopicEventName,
 		"elasticRetrierInterval": elasticRetrierInterval,
 		"elasticRetrierMaxRetry": elasticRetrierMaxRetry,
+		"elasticType":            elasticType,
 		"esConfig":               esConfig,
 		"elasticUsername":        elasticUsername,
 		"elasticPassword":        elasticPassword,
+		"osConfig":               openSearchConfig,
 		"redactor":               setupRedactor(),
 	}
 

@@ -27,6 +27,7 @@ var consumerLogStoredCounter *prometheus.CounterVec
 var consumerBulkProcessTimeSecond prometheus.Summary
 var consumerKafkaMessagesIncomingCounter *prometheus.CounterVec
 var consumerElasticsearchClientFailed *prometheus.CounterVec
+var consumerOpensearchClientFailed *prometheus.CounterVec
 var consumerCustomErrorTotal *prometheus.CounterVec
 var consumerFailedToEnsureIndexExists *prometheus.CounterVec
 
@@ -225,6 +226,10 @@ func ObserveBulkProcessTime(elapsedTime float64) {
 
 func IncreaseConsumerElasticsearchClientFailed(phase string) {
 	consumerElasticsearchClientFailed.WithLabelValues(phase).Inc()
+}
+
+func IncreaseConsumerOpensearchClientFailed(phase string) {
+	consumerOpensearchClientFailed.WithLabelValues(phase).Inc()
 }
 
 func IncreaseConsumerFailedToEnsureIndexExists(index string) {
