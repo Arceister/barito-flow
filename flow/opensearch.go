@@ -194,9 +194,14 @@ func (o *openSearchClient) isIndexExists(ctx context.Context, indexName string) 
 func (o *openSearchClient) createIndexComponentTemplate(ctx context.Context) error {
 	createIndexComponentTemplateReq := opensearchapi.ComponentTemplateCreateReq{
 		ComponentTemplate: o.dataStreamDefaultComponentTemplate,
-		Body: strings.NewReader(fmt.Sprintf(`{
-			"template": {},
-		}`)),
+		Body: strings.NewReader(`{
+			"template": {
+				"settings": {
+					"codec": "best_compression",
+					"refresh_interval": "30s"
+				}
+			}
+		}`),
 	}
 	_, err := o.client.ComponentTemplate.Create(ctx, createIndexComponentTemplateReq)
 	if err != nil {
