@@ -220,8 +220,8 @@ func (o *openSearchClient) createIndexTemplate(ctx context.Context, datastreamNa
 			"index_patterns": ["%s"],
 			"composed_of": ["%s"],
 			"priority": 200,
-			"_meta":{"description":"default template"}},
 			"data_stream": {},
+			"_meta":{"description":"default template"},
 	}`, datastreamName, o.dataStreamDefaultComponentTemplate)),
 	}
 	_, err := o.client.IndexTemplate.Create(ctx, createIndexTemplateReq)
