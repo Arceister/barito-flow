@@ -19,7 +19,7 @@ func TestEnsureIndexExists_CacheHit(t *testing.T) {
 	indexName := "test-index-2024.01.01"
 	client.indexExistsCache.Set(indexName, true, 10*time.Minute)
 
-	result := client.ensureIndexExists(context.Background(), "test-index", indexName)
+	result := client.ensureIndexExists(context.Background(), indexName)
 
 	if !result {
 		t.Fatal("expected true when index exists in cache")
@@ -37,7 +37,7 @@ func TestEnsureIndexExists_IndexExists(t *testing.T) {
 	defer server.Close()
 
 	client, err := NewOpenSearch(
-		NewOpenSearchConfig(1, 1),
+		NewOpenSearchConfig(1, 1, "test-template"),
 		[]string{server.URL},
 		"",
 		"",
@@ -48,7 +48,7 @@ func TestEnsureIndexExists_IndexExists(t *testing.T) {
 	}
 
 	indexName := "test-index-2024.01.01"
-	result := client.ensureIndexExists(context.Background(), "test-index", indexName)
+	result := client.ensureIndexExists(context.Background(), indexName)
 	fmt.Println(result)
 
 	if !result {
@@ -78,7 +78,7 @@ func TestEnsureIndexExists_IndexCreated(t *testing.T) {
 	defer server.Close()
 
 	client, err := NewOpenSearch(
-		NewOpenSearchConfig(1, 1),
+		NewOpenSearchConfig(1, 1, "test-template"),
 		[]string{server.URL},
 		"",
 		"",
@@ -89,7 +89,7 @@ func TestEnsureIndexExists_IndexCreated(t *testing.T) {
 	}
 
 	indexName := "test-index-2024.01.01"
-	result := client.ensureIndexExists(context.Background(), "test-index", indexName)
+	result := client.ensureIndexExists(context.Background(), indexName)
 
 	if !result {
 		t.Fatal("expected true when index is created")
@@ -116,7 +116,7 @@ func TestEnsureIndexExists_CreateIndexFails(t *testing.T) {
 	defer server.Close()
 
 	client, err := NewOpenSearch(
-		NewOpenSearchConfig(1, 1),
+		NewOpenSearchConfig(1, 1, "test-template"),
 		[]string{server.URL},
 		"",
 		"",
@@ -127,7 +127,7 @@ func TestEnsureIndexExists_CreateIndexFails(t *testing.T) {
 	}
 
 	indexName := "test-index-2024.01.01"
-	result := client.ensureIndexExists(context.Background(), "test-index", indexName)
+	result := client.ensureIndexExists(context.Background(), indexName)
 
 	if result {
 		t.Fatal("expected false when index creation fails")
@@ -146,7 +146,7 @@ func TestEnsureIndexExists_CheckExistenceFails(t *testing.T) {
 	defer server.Close()
 
 	client, err := NewOpenSearch(
-		NewOpenSearchConfig(1, 1),
+		NewOpenSearchConfig(1, 1, "test-template"),
 		[]string{server.URL},
 		"",
 		"",
@@ -157,7 +157,7 @@ func TestEnsureIndexExists_CheckExistenceFails(t *testing.T) {
 	}
 
 	indexName := "test-index-2024.01.01"
-	result := client.ensureIndexExists(context.Background(), "test-index", indexName)
+	result := client.ensureIndexExists(context.Background(), indexName)
 
 	if result {
 		t.Fatal("expected false when existence check returns unexpected status")

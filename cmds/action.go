@@ -74,6 +74,7 @@ func ActionBaritoConsumerService(c *cli.Context) (err error) {
 	openSearchConfig := flow.NewOpenSearchConfig(
 		configOpenSearchNumOfShards(),
 		configOpenSearchNumOfReplicas(),
+		configEsDatastreamDefaultComponentTemplateName(),
 	)
 
 	consumerParams := map[string]interface{}{

@@ -10,8 +10,8 @@ import (
 	"github.com/BaritoLog/barito-flow/prome"
 	pb "github.com/bentol/barito-proto/producer"
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/opensearch-project/opensearch-go"
-	"github.com/opensearch-project/opensearch-go/opensearchapi"
+	opensearch "github.com/opensearch-project/opensearch-go/v4"
+	opensearchapi "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	log "github.com/sirupsen/logrus"
 	"github.com/zekroTJA/timedmap"
 )
@@ -20,30 +20,34 @@ var _ Elastic = (*openSearchClient)(nil)
 var openSearchCounter = 0
 
 type openSearchClient struct {
-	client           *opensearch.Client
+	client           *opensearchapi.Client
 	onFailureFunc    func(*pb.Timber)
 	onStoreFunc      func(ctx context.Context, indexName, document string) (err error)
 	jsonMarshaler    *jsonpb.Marshaler
 	indexExistsCache *timedmap.TimedMap
 
-	numOfShards   int
-	numOfReplicas int
+	numOfShards                        int
+	numOfReplicas                      int
+	dataStreamDefaultComponentTemplate string
 
 	redactor Redactor
 }
 
 type openSearchConfig struct {
-	numOfShards   int
-	numOfReplicas int
+	numOfShards                        int
+	numOfReplicas                      int
+	dataStreamDefaultComponentTemplate string
 }
 
 func NewOpenSearchConfig(
 	numOfShards int,
 	numOfReplicas int,
+	dataStreamDefaultComponentTemplate string,
 ) openSearchConfig {
 	return openSearchConfig{
-		numOfShards:   numOfShards,
-		numOfReplicas: numOfReplicas,
+		numOfShards:                        numOfShards,
+		numOfReplicas:                      numOfReplicas,
+		dataStreamDefaultComponentTemplate: dataStreamDefaultComponentTemplate,
 	}
 }
 
@@ -52,25 +56,29 @@ func NewOpenSearch(config openSearchConfig, urls []string, openSearchUsername st
 		httpClient = &http.Client{}
 	}
 
-	var c *opensearch.Client
-	var err error
+	var openSearchConfig opensearch.Config
 	if openSearchUsername == "" || openSearchPassword == "" {
-		c, err = opensearch.NewClient(opensearch.Config{
+		openSearchConfig = opensearch.Config{
 			Addresses:            urls,
 			Transport:            httpClient.Transport,
 			MaxRetries:           0,
 			EnableRetryOnTimeout: true,
-		})
+		}
 	} else {
-		c, err = opensearch.NewClient(opensearch.Config{
+		openSearchConfig = opensearch.Config{
 			Addresses:            urls,
 			Username:             openSearchUsername,
 			Password:             openSearchPassword,
 			MaxRetries:           0,
 			EnableRetryOnTimeout: true,
-		})
+		}
 	}
 
+	c, err := opensearchapi.NewClient(
+		opensearchapi.Config{
+			Client: openSearchConfig,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -81,10 +89,11 @@ func NewOpenSearch(config openSearchConfig, urls []string, openSearchUsername st
 		indexExistsCache: timedmap.New(10 * time.Minute),
 		redactor:         &DummyRedactor{},
 
-		numOfShards:   config.numOfShards,
-		numOfReplicas: config.numOfReplicas,
+		numOfShards:                        config.numOfShards,
+		numOfReplicas:                      config.numOfReplicas,
+		dataStreamDefaultComponentTemplate: config.dataStreamDefaultComponentTemplate,
 	}
-	client.onStoreFunc = client.bulkInsert
+	client.onStoreFunc = client.bulkInsertDataStream
 
 	return client, nil
 }
@@ -95,7 +104,7 @@ func (o *openSearchClient) Store(ctx context.Context, timber pb.Timber) (err err
 	appSecret := timber.GetContext().GetAppSecret()
 
 	for {
-		if o.ensureIndexExists(ctx, indexPrefix, indexName) {
+		if o.ensureIndexExists(ctx, indexName) {
 			break
 		}
 		prome.IncreaseConsumerFailedToEnsureIndexExists(indexName)
@@ -121,103 +130,114 @@ func (o *openSearchClient) Store(ctx context.Context, timber pb.Timber) (err err
 	return nil
 }
 
-func (o *openSearchClient) bulkInsert(_ context.Context, indexName, document string) (err error) {
-	bulkBody := fmt.Sprintf(`{ "index" : { "_index" : "%s" } }
-%s
-`, indexName, document)
-
-	bulkReq := opensearchapi.BulkRequest{
-		Body: strings.NewReader(bulkBody),
-	}
-
-	bulkResp, err := bulkReq.Do(context.Background(), o.client)
-	if err != nil {
-		log.Errorf("Failed to perform bulk insert to index %s: %v", indexName, err)
-		return err
-	}
-	defer bulkResp.Body.Close()
-
-	if bulkResp.StatusCode != 200 && bulkResp.StatusCode != 201 {
-		log.Errorf("Bulk insert to index %s failed, status code: %d", indexName, bulkResp.StatusCode)
-		return fmt.Errorf("bulk insert failed with status code: %d", bulkResp.StatusCode)
-	}
-	return nil
-}
-
-func (o *openSearchClient) ensureIndexExists(ctx context.Context, indexPrefix, indexName string) bool {
+func (o *openSearchClient) ensureIndexExists(ctx context.Context, indexName string) bool {
 	indexCacheFound := o.indexExistsCache.GetValue(indexName)
 	if indexCacheFound != nil {
 		return true
 	}
 
-	existsReq := opensearchapi.IndicesExistsRequest{
-		Index: []string{indexName},
+	exists, err := o.isIndexExists(ctx, indexName)
+	if err != nil {
+		log.Errorf("Error checking if index exists: %s", err)
+		return false
 	}
 
-	existsResp, err := existsReq.Do(ctx, o.client)
+	if !exists {
+		return o.ensureIndexDataStreamExists(ctx, indexName)
+	}
+
+	o.indexExistsCache.Set(indexName, true, 10*time.Minute)
+	return true
+}
+
+func (o *openSearchClient) ensureIndexDataStreamExists(ctx context.Context, datastreamName string) bool {
+	log.Warnf("OpenSearch datastream index '%s' is not exist", datastreamName)
+
+	if o.createIndexTemplate(ctx, datastreamName) != nil {
+		return false
+	}
+
+	if o.createDataStream(ctx, datastreamName) != nil {
+		return false
+	}
+
+	return true
+}
+
+func (o *openSearchClient) isIndexExists(ctx context.Context, indexName string) (bool, error) {
+	existsReq := opensearchapi.IndicesExistsReq{
+		Indices: []string{indexName},
+	}
+	existsResp, err := o.client.Indices.Exists(ctx, existsReq)
 	if err != nil {
 		log.Errorf("Failed to check index existence for %s: %v", indexName, err)
-		return false
+		return false, err
 	}
 	defer existsResp.Body.Close()
 
 	if existsResp.StatusCode == 200 {
 		o.indexExistsCache.Set(indexName, true, 10*time.Minute)
-		return true
+		return true, nil
 	}
 
 	if existsResp.StatusCode == 404 {
-		if o.createIndex(ctx, indexName) {
-			o.indexExistsCache.Set(indexName, true, 10*time.Minute)
-			return true
-		}
-		return false
+		return false, nil
 	}
 
-	// TODO: apply ISM here if needed
-	if err := o.createAndApplyISMIfNeeded(ctx, indexPrefix, indexName); err != nil {
-		log.Errorf("Failed to create and apply ISM for index %s: %v", indexName, err)
-		return false
-	}
-
-	log.Errorf("Unexpected status code when checking index %s: %d", indexName, existsResp.StatusCode)
-	return false
+	return false, nil
 }
 
-func (o *openSearchClient) createAndApplyISMIfNeeded(_ context.Context, indexPrefix, indexName string) error {
-	// Placeholder for ISM creation and application logic
-	// Implement ISM creation and application as per your requirements
+func (o *openSearchClient) createIndexTemplate(ctx context.Context, datastreamName string) error {
+	createIndexTemplateReq := opensearchapi.IndexTemplateCreateReq{
+		IndexTemplate: datastreamName,
+		Body: strings.NewReader(fmt.Sprintf(`{
+			"index_patterns": ["%s"],
+			"composed_of": ["%s"],
+			"priority": 200,
+			"_meta":{"description":"default template"}},
+			"data_stream": {},
+	}`, datastreamName, o.dataStreamDefaultComponentTemplate)),
+	}
+	_, err := o.client.IndexTemplate.Create(ctx, createIndexTemplateReq)
+	if err != nil {
+		log.Errorf("Error creating index template %s: %s", datastreamName, err)
+		return err
+	}
+	log.Debugf("Index template created for %s", datastreamName)
+
 	return nil
 }
 
-func (o *openSearchClient) createIndex(ctx context.Context, indexName string) bool {
-	settings := fmt.Sprintf(`{
-		"settings": {
-			"index": {
-				"number_of_shards": %d,
-				"number_of_replicas": %d
-			}
-		}
-	}`, o.numOfShards, o.numOfReplicas)
-
-	createReq := opensearchapi.IndicesCreateRequest{
-		Index: indexName,
-		Body:  strings.NewReader(settings),
+func (o *openSearchClient) createDataStream(ctx context.Context, datastreamName string) error {
+	createDataStreamReq := opensearchapi.DataStreamCreateReq{
+		DataStream: datastreamName,
 	}
-
-	createResp, err := createReq.Do(ctx, o.client)
+	_, err := o.client.DataStream.Create(ctx, createDataStreamReq)
 	if err != nil {
-		log.Errorf("Failed to create index %s: %v", indexName, err)
-		return false
+		log.Errorf("Error creating data stream %s: %s", datastreamName, err)
+		return err
 	}
-	defer createResp.Body.Close()
+	log.Debugf("Data stream created for %s", datastreamName)
 
-	if createResp.StatusCode != 200 && createResp.StatusCode != 201 {
-		log.Errorf("Failed to create index %s, status code: %d", indexName, createResp.StatusCode)
-		return false
+	return nil
+}
+
+func (o *openSearchClient) bulkInsertDataStream(ctx context.Context, indexName, document string) (err error) {
+	_, err = o.client.Bulk(
+		ctx,
+		opensearchapi.BulkReq{
+			Body: strings.NewReader(fmt.Sprintf(`{ "index": { "_index": "%s" } }
+%s
+`, indexName, document)),
+		},
+	)
+	if err != nil {
+		log.Errorf("Error bulk inserting document into data stream %s: %s", indexName, err)
+		return err
 	}
+	log.Debugf("Bulk insert successful for data stream %s", indexName)
 
-	return true
+	return nil
 }
 
 func (o *openSearchClient) OnFailure(f func(*pb.Timber)) {
