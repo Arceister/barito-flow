@@ -171,7 +171,7 @@ func (o *openSearchClient) isIndexExists(ctx context.Context, indexName string) 
 	existsResp, err := o.client.Indices.Exists(ctx, existsReq)
 	if err != nil {
 		log.Errorf("Failed to check index existence for %s: %v", indexName, err)
-		return false, err
+		return false, nil
 	}
 	defer existsResp.Body.Close()
 
