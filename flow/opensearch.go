@@ -93,7 +93,7 @@ func NewOpenSearch(config openSearchConfig, urls []string, openSearchUsername st
 		numOfReplicas:                      config.numOfReplicas,
 		dataStreamDefaultComponentTemplate: config.dataStreamDefaultComponentTemplate,
 	}
-	client.onStoreFunc = client.bulkInsertDataStream
+	client.onStoreFunc = client.insertDataStream
 
 	return client, nil
 }
@@ -254,20 +254,16 @@ func (o *openSearchClient) createDataStream(ctx context.Context, datastreamName 
 	return nil
 }
 
-func (o *openSearchClient) bulkInsertDataStream(ctx context.Context, indexName, document string) (err error) {
-	_, err = o.client.Bulk(
-		ctx,
-		opensearchapi.BulkReq{
-			Body: strings.NewReader(fmt.Sprintf(`{ "index": { "_index": "%s" } }
-%s
-`, indexName, document)),
-		},
-	)
+func (o *openSearchClient) insertDataStream(ctx context.Context, indexName, document string) (err error) {
+	_, err = o.client.Document.Create(ctx, opensearchapi.DocumentCreateReq{
+		Index: indexName,
+		Body:  strings.NewReader(document),
+	})
 	if err != nil {
-		log.Errorf("Error bulk inserting document into data stream %s: %s", indexName, err)
+		log.Errorf("Error inserting document into data stream %s: %s", indexName, err)
 		return err
 	}
-	log.Debugf("Bulk insert successful for data stream %s", indexName)
+	log.Debugf("Insert successful for data stream %s", indexName)
 
 	return nil
 }
