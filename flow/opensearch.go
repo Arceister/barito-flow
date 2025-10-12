@@ -100,7 +100,7 @@ func NewOpenSearch(config openSearchConfig, urls []string, openSearchUsername st
 
 func (o *openSearchClient) Store(ctx context.Context, timber pb.Timber) (err error) {
 	indexPrefix := timber.GetContext().GetEsIndexPrefix()
-	indexName := fmt.Sprintf("%s-%s", indexPrefix, time.Now().Format("2006.01.02"))
+	indexName := indexPrefix
 	appSecret := timber.GetContext().GetAppSecret()
 
 	for {
