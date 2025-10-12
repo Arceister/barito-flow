@@ -217,12 +217,18 @@ func (o *openSearchClient) createIndexTemplate(ctx context.Context, datastreamNa
 	createIndexTemplateReq := opensearchapi.IndexTemplateCreateReq{
 		IndexTemplate: datastreamName,
 		Body: strings.NewReader(fmt.Sprintf(`{
-			"index_patterns": ["%s"],
-			"composed_of": ["%s"],
-			"priority": 200,
-			"data_stream": {},
-			"_meta":{"description":"default template"},
-	}`, datastreamName, o.dataStreamDefaultComponentTemplate)),
+	"index_patterns": [
+		"%s"
+	],
+	"composed_of": [
+		"%s"
+	],
+	"priority": 200,
+	"data_stream": {},
+	"_meta": {
+		"description": "default template"
+	}
+}`, datastreamName, o.dataStreamDefaultComponentTemplate)),
 	}
 	_, err := o.client.IndexTemplate.Create(ctx, createIndexTemplateReq)
 	if err != nil {
