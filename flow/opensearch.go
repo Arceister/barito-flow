@@ -255,7 +255,7 @@ func (o *openSearchClient) createDataStream(ctx context.Context, datastreamName 
 }
 
 func (o *openSearchClient) insertDataStream(ctx context.Context, indexName, document string) (err error) {
-	_, err = o.client.Document.Create(ctx, opensearchapi.DocumentCreateReq{
+	_, err = o.client.Index(ctx, opensearchapi.IndexReq{
 		Index: indexName,
 		Body:  strings.NewReader(document),
 	})
