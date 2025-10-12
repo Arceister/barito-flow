@@ -153,6 +153,10 @@ func (o *openSearchClient) ensureIndexExists(ctx context.Context, indexName stri
 func (o *openSearchClient) ensureIndexDataStreamExists(ctx context.Context, datastreamName string) bool {
 	log.Warnf("OpenSearch datastream index '%s' is not exist", datastreamName)
 
+	if o.createIndexComponentTemplate(ctx) != nil {
+		return false
+	}
+
 	if o.createIndexTemplate(ctx, datastreamName) != nil {
 		return false
 	}
@@ -185,6 +189,20 @@ func (o *openSearchClient) isIndexExists(ctx context.Context, indexName string) 
 	}
 
 	return false, nil
+}
+
+func (o *openSearchClient) createIndexComponentTemplate(ctx context.Context) error {
+	createIndexComponentTemplateReq := opensearchapi.ComponentTemplateCreateReq{
+		ComponentTemplate: o.dataStreamDefaultComponentTemplate,
+	}
+	_, err := o.client.ComponentTemplate.Create(ctx, createIndexComponentTemplateReq)
+	if err != nil {
+		log.Errorf("Error creating index component template %s: %s", o.dataStreamDefaultComponentTemplate, err)
+		return err
+	}
+	log.Debugf("Index component template created for %s", o.dataStreamDefaultComponentTemplate)
+
+	return nil
 }
 
 func (o *openSearchClient) createIndexTemplate(ctx context.Context, datastreamName string) error {
