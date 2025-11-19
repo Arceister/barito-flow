@@ -52,6 +52,7 @@ var logStoredErrorMap map[string]string = map[string]string{
 	"to parse field":              "mapping_failed",
 	"mapping":                     "mapping_failed",
 	"mapper":                      "mapping_failed",
+	"failed to parse":             "mapping_failed",
 	"Data too large":              "data_too_large",
 	"TransportService is closed":  "request_error_transport_service_closed",
 	"Node not connected":          "node_not_connected",
@@ -60,6 +61,7 @@ var logStoredErrorMap map[string]string = map[string]string{
 	"index read-only":             "index_read_only",
 	"Limit of total fields":       "limit_of_total_fields_excedeed",
 	"maximum shards open":         "maximum_shards_open",
+	"disk usage exceeded":         "disk_usage_exceeded",
 }
 
 func InitConsumerInstrumentation() {
