@@ -139,7 +139,7 @@ func getCommitCallback() (func(int64, []elastic.BulkableRequest), func(int64, []
 		prome.ObserveBulkProcessTime(diff)
 
 		if err != nil {
-			log.Errorf("Bulk commit error: %s", err)
+			log.Errorf("bulk commit error: %s", err.Error())
 			return
 		}
 
