@@ -138,8 +138,18 @@ func getCommitCallback() (func(int64, []elastic.BulkableRequest), func(int64, []
 		diff := float64(time.Now().Sub(start).Nanoseconds()) / float64(1000000000)
 		prome.ObserveBulkProcessTime(diff)
 
-		for _, response := range response.Items {
-			for _, responseItem := range response {
+		if err != nil {
+			log.Errorf("bulk commit error: %s", err.Error())
+			return
+		}
+
+		if response == nil {
+			log.Error("bulk commit error: response is nil")
+			return
+		}
+
+		for _, item := range response.Items {
+			for _, responseItem := range item {
 				prome.IncreaseLogStoredCounter(responseItem.Index, responseItem.Result, responseItem.Status, responseItem.Error)
 			}
 		}
