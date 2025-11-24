@@ -144,7 +144,7 @@ func getCommitCallback() (func(int64, []elastic.BulkableRequest), func(int64, []
 		}
 
 		if response == nil {
-			log.Error("Bulk commit error: response is nil")
+			log.Error("bulk commit error: response is nil")
 			return
 		}
 
