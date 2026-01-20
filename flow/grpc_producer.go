@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/BaritoLog/barito-flow/flow/types"
@@ -28,6 +29,8 @@ const (
 	MessageFormatHeaderKey        = "message_format"
 	TimberCollectionMessageFormat = "TimberCollection"
 	TimberMessageFormat           = "Timber"
+
+	ProberTopic = "barito-prober"
 )
 
 type ProducerService interface {
@@ -368,9 +371,18 @@ func (s *producerService) handleProduceBatch(timberCollection *pb.TimberCollecti
 }
 
 func (s *producerService) getRateLimitInfo(context *pb.TimberContext) (string, int32) {
+	kafkaTopic := context.GetKafkaTopic()
+
+	// prober topic should not be rate limited per appAgroup
+	if strings.Contains(kafkaTopic, ProberTopic) {
+		return s.topicPrefix + kafkaTopic, 1
+	}
+
 	if context.GetDisableAppTps() {
+		// if app tps is disabled, use app group tps
 		return RateLimitKeyAppGroup, context.GetAppGroupMaxTps()
 	} else {
+		// otherwise use app tps
 		return s.topicPrefix + context.GetKafkaTopic() + s.topicSuffix, context.GetAppMaxTps()
 	}
 }
