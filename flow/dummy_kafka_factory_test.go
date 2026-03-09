@@ -5,7 +5,7 @@ import (
 
 	"github.com/BaritoLog/barito-flow/flow/types"
 	. "github.com/BaritoLog/go-boilerplate/testkit"
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 )
 
 func TestDummyKafkaFactory(t *testing.T) {

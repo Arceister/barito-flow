@@ -3,8 +3,6 @@ package flow
 import (
 	"strconv"
 	"time"
-
-	"github.com/BaritoLog/go-boilerplate/timekit"
 )
 
 type Limiter interface {
@@ -37,7 +35,7 @@ type rateLimiter struct {
 func NewRateLimiter(duration int) RateLimiter {
 	return &rateLimiter{
 		duration:  int32(duration),
-		tick:      time.Tick(timekit.Duration(strconv.Itoa(duration) + "s")),
+		tick:      time.Tick(parseDuration(strconv.Itoa(duration) + "s")),
 		stop:      make(chan int),
 		bucketMap: make(map[string]*LeakyBucket),
 	}

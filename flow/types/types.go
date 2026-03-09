@@ -1,9 +1,12 @@
 package types
 
 import (
-	"github.com/Shopify/sarama"
-	cluster "github.com/bsm/sarama-cluster"
+	"github.com/IBM/sarama"
 )
+
+type Notification struct {
+	Type string
+}
 
 type KafkaFactory interface {
 	MakeKafkaAdmin() (admin KafkaAdmin, err error)
@@ -24,7 +27,7 @@ type KafkaAdmin interface {
 
 type ClusterConsumer interface {
 	Messages() <-chan *sarama.ConsumerMessage
-	Notifications() <-chan *cluster.Notification
+	Notifications() <-chan *Notification
 	Errors() <-chan error
 	MarkOffset(msg *sarama.ConsumerMessage, metadata string)
 	CommitOffsets() error
@@ -39,7 +42,7 @@ type ConsumerWorker interface {
 	OnError(f func(error))
 	OnConsumerFlush() error
 	OnSuccess(f func(*sarama.ConsumerMessage))
-	OnNotification(f func(*cluster.Notification))
+	OnNotification(f func(*Notification))
 }
 
 type ConsumerOutputFactory interface {

@@ -12,9 +12,8 @@ import (
 
 	"github.com/BaritoLog/barito-flow/flow"
 	"github.com/BaritoLog/go-boilerplate/srvkit"
-	"github.com/BaritoLog/go-boilerplate/timekit"
 	"github.com/BaritoLog/instru"
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	"github.com/mailgun/gubernator/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -243,7 +242,7 @@ func callbackInstrumentation() bool {
 	}
 
 	instru.SetCallback(
-		timekit.Duration(pushMetricInterval),
+		parseDuration(pushMetricInterval),
 		NewMetricMarketCallback(pushMetricUrl),
 	)
 	return true

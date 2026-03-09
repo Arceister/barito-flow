@@ -5,11 +5,11 @@
 package mock
 
 import (
-	types "github.com/BaritoLog/barito-flow/flow/types"
-	sarama "github.com/Shopify/sarama"
-	cluster "github.com/bsm/sarama-cluster"
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	types "github.com/BaritoLog/barito-flow/flow/types"
+	sarama "github.com/IBM/sarama"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockKafkaFactory is a mock of KafkaFactory interface
@@ -247,10 +247,10 @@ func (mr *MockClusterConsumerMockRecorder) Messages() *gomock.Call {
 }
 
 // Notifications mocks base method
-func (m *MockClusterConsumer) Notifications() <-chan *cluster.Notification {
+func (m *MockClusterConsumer) Notifications() <-chan *types.Notification {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Notifications")
-	ret0, _ := ret[0].(<-chan *cluster.Notification)
+	ret0, _ := ret[0].(<-chan *types.Notification)
 	return ret0
 }
 
@@ -426,7 +426,7 @@ func (mr *MockConsumerWorkerMockRecorder) OnSuccess(f interface{}) *gomock.Call 
 }
 
 // OnNotification mocks base method
-func (m *MockConsumerWorker) OnNotification(f func(*cluster.Notification)) {
+func (m *MockConsumerWorker) OnNotification(f func(*types.Notification)) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "OnNotification", f)
 }

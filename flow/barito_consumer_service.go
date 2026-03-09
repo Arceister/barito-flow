@@ -15,8 +15,7 @@ import (
 	"github.com/BaritoLog/barito-flow/prome"
 
 	"github.com/BaritoLog/go-boilerplate/errkit"
-	"github.com/BaritoLog/go-boilerplate/timekit"
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	pb "github.com/bentol/barito-proto/producer"
 	uuid "github.com/gofrs/uuid"
 	log "github.com/sirupsen/logrus"
@@ -363,7 +362,7 @@ func (s *baritoConsumerService) HaltAllWorker() {
 
 func (s *baritoConsumerService) elasticRetrier() *ElasticRetrier {
 	return NewElasticRetrier(
-		timekit.Duration(s.elasticRetrierInterval),
+		parseDuration(s.elasticRetrierInterval),
 		s.elasticRetrierMaxRetry,
 		s.onElasticRetry,
 		s.onElasticMaxRetryReached,

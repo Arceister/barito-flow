@@ -6,8 +6,7 @@ import (
 	"github.com/BaritoLog/barito-flow/flow/types"
 	"github.com/BaritoLog/barito-flow/prome"
 	"github.com/BaritoLog/go-boilerplate/errkit"
-	"github.com/Shopify/sarama"
-	cluster "github.com/bsm/sarama-cluster"
+	"github.com/IBM/sarama"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -21,7 +20,7 @@ type consumerWorker struct {
 	consumer           types.ClusterConsumer
 	onErrorFunc        func(error)
 	onSuccessFunc      func(*sarama.ConsumerMessage)
-	onNotificationFunc func(*cluster.Notification)
+	onNotificationFunc func(*types.Notification)
 	stop               chan int
 	lastMessage        *sarama.ConsumerMessage
 }
@@ -71,7 +70,7 @@ func (w *consumerWorker) OnSuccess(f func(*sarama.ConsumerMessage)) {
 	w.onSuccessFunc = f
 }
 
-func (w *consumerWorker) OnNotification(f func(*cluster.Notification)) {
+func (w *consumerWorker) OnNotification(f func(*types.Notification)) {
 	w.onNotificationFunc = f
 }
 
@@ -125,7 +124,7 @@ func (w *consumerWorker) fireError(err error) {
 	}
 }
 
-func (w *consumerWorker) fireNotification(notification *cluster.Notification) {
+func (w *consumerWorker) fireNotification(notification *types.Notification) {
 	if w.onNotificationFunc != nil {
 		w.onNotificationFunc(notification)
 	}

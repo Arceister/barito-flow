@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	"github.com/BaritoLog/barito-flow/flow/types"
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	log "github.com/sirupsen/logrus"
 )
 
