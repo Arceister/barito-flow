@@ -32,9 +32,8 @@ const (
 
 	EnvPushMetricInterval = "BARITO_PUSH_METRIC_INTERVAL"
 
-	EnvServeRestApi                   = "BARITO_PRODUCER_REST_API" // TODO: rename to better name
-	EnvProducerAddressGrpc            = "BARITO_PRODUCER_GRPC"     // TODO: rename to better name
-	EnvProducerAddressRest            = "BARITO_PRODUCER_REST"     // TODO: rename to better name
+	EnvProducerAddressGrpc            = "BARITO_PRODUCER_GRPC"
+	EnvProducerAddressRest            = "BARITO_PRODUCER_REST" // TODO: rename to better name
 	EnvProducerMaxRetry               = "BARITO_PRODUCER_MAX_RETRY"
 	EnvProducerMaxTPS                 = "BARITO_PRODUCER_MAX_TPS"
 	EnvProducerRateLimitResetInterval = "BARITO_PRODUCER_RATE_LIMIT_RESET_INTERVAL"
@@ -97,7 +96,6 @@ var (
 
 	DefaultPushMetricInterval = "30s"
 
-	DefaultServeRestApi                   = "true"
 	DefaultProducerAddressGrpc            = ":8082"
 	DefaultProducerAddressRest            = ":8080"
 	DefaultProducerMaxRetry               = 10
@@ -233,10 +231,6 @@ func configPushMetricInterval() (s string) {
 	return stringEnvOrDefault(EnvPushMetricInterval, DefaultPushMetricInterval)
 }
 
-func configServeRestApi() bool {
-	return (stringEnvOrDefault(EnvServeRestApi, DefaultServeRestApi) == "true")
-}
-
 func configProducerAddressGrpc() (s string) {
 	return stringEnvOrDefault(EnvProducerAddressGrpc, DefaultProducerAddressGrpc)
 }
@@ -249,12 +243,12 @@ func configProducerMaxRetry() (i int) {
 	return intEnvOrDefault(EnvProducerMaxRetry, DefaultProducerMaxRetry)
 }
 
-func configProducerMaxTPS() (i int) {
-	return intEnvOrDefault(EnvProducerMaxTPS, DefaultProducerMaxTPS)
-}
-
 func configProducerRateLimitResetInterval() (i int) {
 	return intEnvOrDefault(EnvProducerRateLimitResetInterval, DefaultProducerRateLimitResetInterval)
+}
+
+func configProducerMaxTPS() (i int) {
+	return intEnvOrDefault(EnvProducerMaxTPS, DefaultProducerMaxTPS)
 }
 
 func configProducerIgnoreKafkaOptions() bool {

@@ -14,10 +14,10 @@ import (
 )
 
 type baritoKafkaConsumerGCSServiceTestObject struct {
-	baritoKafkaConsumerGCSService
 	kafkaAdmin           *mock.MockKafkaAdmin
 	kafkaFactory         *mock.MockKafkaFactory
 	consumerOuputFactory *mock.MockConsumerOutputFactory
+	baritoKafkaConsumerGCSService
 }
 
 func TestKafkaGCS_Start(t *testing.T) {

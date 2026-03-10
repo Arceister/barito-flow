@@ -58,10 +58,10 @@ func (r *DummyRedactor) Redact(indexName, document string) (string, error) {
 
 type esConfig struct {
 	indexMethod                        string
+	dataStreamDefaultComponentTemplate string
 	bulkSize                           int
 	flushMs                            time.Duration
 	printTPS                           bool
-	dataStreamDefaultComponentTemplate string
 }
 
 func NewEsConfig(indexMethod string, bulkSize int, flushMs time.Duration, printTPS bool, dataStreamDefaultComponentTemplate string) esConfig {

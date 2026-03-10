@@ -1,13 +1,13 @@
 package flow
 
 type dummyRateLimiter struct {
-	IsStartBool    bool
 	IsHitLimitFunc func(topic string, count int, maxTokenIfNotExist int32) bool
 	StartFunc      func()
 	StopFunc       func()
 	IsStartFunc    func() bool
 	PutBucketFunc  func(topic string, bucket *LeakyBucket)
 	BucketFunc     func(topic string) *LeakyBucket
+	IsStartBool    bool
 }
 
 func NewDummyRateLimiter() *dummyRateLimiter {

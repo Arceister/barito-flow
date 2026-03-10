@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-redis/redis/v8"
-	log "github.com/sirupsen/logrus"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/go-redis/redis/v8"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -34,18 +35,15 @@ func WithDuration(duration time.Duration) DistributedRateLimiterOpts {
 	}
 }
 
-// WithTimeout sets context timeout duration
-// otherwise defaultTimeout will be used
-func WithTimeout(timeout time.Duration) DistributedRateLimiterOpts {
-	return func(d *RedisRateLimiter) {
-		d.timeout = timeout
-	}
-}
-
-// WithKeyPrefix enables separation of key among redis usage
 func WithKeyPrefix(prefix string) DistributedRateLimiterOpts {
 	return func(d *RedisRateLimiter) {
 		d.keyPrefix = strings.TrimSpace(prefix)
+	}
+}
+
+func WithTimeout(timeout time.Duration) DistributedRateLimiterOpts {
+	return func(d *RedisRateLimiter) {
+		d.timeout = timeout
 	}
 }
 

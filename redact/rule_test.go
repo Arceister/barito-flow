@@ -38,10 +38,10 @@ func TestRules_Redact(t *testing.T) {
 	}
 
 	tests := []struct {
+		rules *Rules
 		name  string
 		input string
 		want  string
-		rules *Rules
 	}{
 		{
 			name:  "non json log, with 1 match and static rules",

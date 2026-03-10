@@ -3,11 +3,11 @@ package flow
 import "net/http"
 
 type ELasticTestHandler struct {
+	CustomHandler   func(w http.ResponseWriter, r *http.Request)
+	ResponseBody    []byte
 	ExistAPIStatus  int
 	CreateAPIStatus int
 	PostAPIStatus   int
-	ResponseBody    []byte
-	CustomHandler   func(w http.ResponseWriter, r *http.Request)
 }
 
 func (handler *ELasticTestHandler) getResponseBody() (body []byte) {

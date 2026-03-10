@@ -8,8 +8,8 @@ import (
 )
 
 type kafkaFactory struct {
-	brokers []string
 	config  *sarama.Config
+	brokers []string
 }
 
 func NewKafkaFactory(brokers []string, config *sarama.Config) types.KafkaFactory {
@@ -59,11 +59,11 @@ func (f kafkaFactory) MakeConsumerWorker(name string, consumer types.ClusterCons
 
 type consumerGroupAdapter struct {
 	group         sarama.ConsumerGroup
-	topics        []string
+	session       sarama.ConsumerGroupSession
 	messages      chan *sarama.ConsumerMessage
 	notifications chan *types.Notification
 	errors        chan error
-	session       sarama.ConsumerGroupSession
+	topics        []string
 }
 
 func newConsumerGroupAdapter(group sarama.ConsumerGroup, topics []string) *consumerGroupAdapter {
