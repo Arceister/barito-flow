@@ -1,7 +1,6 @@
 package flow
 
 import (
-	"strconv"
 	"time"
 )
 
@@ -35,7 +34,7 @@ type rateLimiter struct {
 func NewRateLimiter(duration int) RateLimiter {
 	return &rateLimiter{
 		duration:  int32(duration),
-		tick:      time.Tick(parseDuration(strconv.Itoa(duration) + "s")),
+		tick:      time.Tick(time.Duration(duration) * time.Second),
 		stop:      make(chan int),
 		bucketMap: make(map[string]*LeakyBucket),
 	}

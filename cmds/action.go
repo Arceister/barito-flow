@@ -9,6 +9,7 @@ import (
 
 	"github.com/BaritoLog/barito-flow/prome"
 	"github.com/BaritoLog/barito-flow/redact"
+	"github.com/BaritoLog/barito-flow/utils"
 
 	"github.com/BaritoLog/barito-flow/flow"
 	"github.com/BaritoLog/go-boilerplate/srvkit"
@@ -242,7 +243,7 @@ func callbackInstrumentation() bool {
 	}
 
 	instru.SetCallback(
-		parseDuration(pushMetricInterval),
+		utils.ParseDuration(pushMetricInterval),
 		NewMetricMarketCallback(pushMetricUrl),
 	)
 	return true

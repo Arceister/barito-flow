@@ -43,7 +43,7 @@ func (f kafkaFactory) MakeClusterConsumer(groupID, topic string, initialOffset i
 	}
 
 	adapter := newConsumerGroupAdapter(group, []string{topic})
-	go adapter.consume()
+	go adapter.consume(context.Background())
 
 	return adapter, nil
 }
@@ -63,33 +63,28 @@ type consumerGroupAdapter struct {
 	messages      chan *sarama.ConsumerMessage
 	notifications chan *types.Notification
 	errors        chan error
-	ctx           context.Context
-	cancel        context.CancelFunc
 	session       sarama.ConsumerGroupSession
 }
 
 func newConsumerGroupAdapter(group sarama.ConsumerGroup, topics []string) *consumerGroupAdapter {
-	ctx, cancel := context.WithCancel(context.Background())
 	return &consumerGroupAdapter{
 		group:         group,
 		topics:        topics,
 		messages:      make(chan *sarama.ConsumerMessage, 256),
 		notifications: make(chan *types.Notification, 16),
 		errors:        make(chan error, 16),
-		ctx:           ctx,
-		cancel:        cancel,
 	}
 }
 
-func (a *consumerGroupAdapter) consume() {
+func (a *consumerGroupAdapter) consume(ctx context.Context) {
 	for {
-		if err := a.group.Consume(a.ctx, a.topics, a); err != nil {
+		if err := a.group.Consume(ctx, a.topics, a); err != nil {
 			select {
 			case a.errors <- err:
 			default:
 			}
 		}
-		if a.ctx.Err() != nil {
+		if ctx.Err() != nil {
 			return
 		}
 	}
@@ -112,11 +107,11 @@ func (a *consumerGroupAdapter) Cleanup(_ sarama.ConsumerGroupSession) error {
 	return nil
 }
 
-func (a *consumerGroupAdapter) ConsumeClaim(_ sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+func (a *consumerGroupAdapter) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
 		select {
 		case a.messages <- msg:
-		case <-a.ctx.Done():
+		case <-session.Context().Done():
 			return nil
 		}
 	}
@@ -149,6 +144,5 @@ func (a *consumerGroupAdapter) CommitOffsets() error {
 }
 
 func (a *consumerGroupAdapter) Close() error {
-	a.cancel()
 	return a.group.Close()
 }

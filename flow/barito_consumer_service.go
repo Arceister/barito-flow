@@ -13,6 +13,7 @@ import (
 
 	"github.com/BaritoLog/barito-flow/flow/types"
 	"github.com/BaritoLog/barito-flow/prome"
+	"github.com/BaritoLog/barito-flow/utils"
 
 	"github.com/BaritoLog/go-boilerplate/errkit"
 	"github.com/IBM/sarama"
@@ -362,7 +363,7 @@ func (s *baritoConsumerService) HaltAllWorker() {
 
 func (s *baritoConsumerService) elasticRetrier() *ElasticRetrier {
 	return NewElasticRetrier(
-		parseDuration(s.elasticRetrierInterval),
+		utils.ParseDuration(s.elasticRetrierInterval),
 		s.elasticRetrierMaxRetry,
 		s.onElasticRetry,
 		s.onElasticMaxRetryReached,
