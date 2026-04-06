@@ -8,7 +8,7 @@ import (
 	"github.com/BaritoLog/barito-flow/flow/types"
 	"github.com/BaritoLog/barito-flow/prome"
 	"github.com/BaritoLog/go-boilerplate/errkit"
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/kelseyhightower/envconfig"
 	log "github.com/sirupsen/logrus"

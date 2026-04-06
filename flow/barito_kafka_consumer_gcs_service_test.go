@@ -7,17 +7,17 @@ import (
 
 	"github.com/BaritoLog/barito-flow/flow/types"
 	"github.com/BaritoLog/barito-flow/mock"
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
 )
 
 type baritoKafkaConsumerGCSServiceTestObject struct {
-	baritoKafkaConsumerGCSService
 	kafkaAdmin           *mock.MockKafkaAdmin
 	kafkaFactory         *mock.MockKafkaFactory
 	consumerOuputFactory *mock.MockConsumerOutputFactory
+	baritoKafkaConsumerGCSService
 }
 
 func TestKafkaGCS_Start(t *testing.T) {

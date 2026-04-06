@@ -10,7 +10,7 @@ import (
 	"github.com/BaritoLog/barito-flow/flow/types"
 	"github.com/BaritoLog/barito-flow/prome"
 	"github.com/BaritoLog/go-boilerplate/errkit"
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	pb "github.com/bentol/barito-proto/producer"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/BaritoLog/go-boilerplate/errkit"
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	pb "github.com/bentol/barito-proto/producer"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"

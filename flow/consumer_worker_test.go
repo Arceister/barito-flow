@@ -6,12 +6,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/BaritoLog/barito-flow/flow/types"
 	"github.com/BaritoLog/barito-flow/mock"
 	. "github.com/BaritoLog/go-boilerplate/testkit"
-	"github.com/BaritoLog/go-boilerplate/timekit"
-	"github.com/Shopify/sarama"
-	cluster "github.com/bsm/sarama-cluster"
+	"github.com/IBM/sarama"
 	"github.com/golang/mock/gomock"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -22,7 +22,7 @@ func TestConsumerWorker(t *testing.T) {
 	defer ctrl.Finish()
 
 	want := &sarama.ConsumerMessage{Topic: "test"}
-	wantNotification := &cluster.Notification{}
+	wantNotification := &types.Notification{}
 
 	consumer := mock.NewMockClusterConsumer(ctrl)
 	consumer.EXPECT().Messages().AnyTimes().Return(sampleMessageChannel(want))
@@ -39,16 +39,16 @@ func TestConsumerWorker(t *testing.T) {
 	defer ts.Close()
 
 	var got *sarama.ConsumerMessage
-	var gotNotification *cluster.Notification
+	var gotNotification *types.Notification
 
 	worker := NewConsumerWorker("worker", consumer)
 	worker.OnSuccess(func(message *sarama.ConsumerMessage) { got = message })
-	worker.OnNotification(func(notification *cluster.Notification) { gotNotification = notification })
+	worker.OnNotification(func(notification *types.Notification) { gotNotification = notification })
 
 	worker.Start()
 	defer worker.Stop()
 
-	timekit.Sleep("2ms")
+	time.Sleep(2 * time.Millisecond)
 
 	FatalIf(t, got != want, "wrong message")
 	FatalIf(t, gotNotification != wantNotification, "wrong notification")
@@ -87,7 +87,7 @@ func TestConsumerWorker_KafkaError(t *testing.T) {
 	worker.Start()
 	defer worker.Stop()
 
-	timekit.Sleep("1ms")
+	time.Sleep(1 * time.Millisecond)
 
 	FatalIfWrongError(t, gotErr, "expected kafka error")
 }
@@ -99,19 +99,19 @@ func sampleMessageChannel(messages ...*sarama.ConsumerMessage) <-chan *sarama.Co
 			messageCh <- message
 		}
 	}()
-	timekit.Sleep("1s")
+	time.Sleep(1 * time.Second)
 
 	return messageCh
 }
 
-func sampleNotificationChannel(notifications ...*cluster.Notification) chan *cluster.Notification {
-	notificationCh := make(chan *cluster.Notification)
+func sampleNotificationChannel(notifications ...*types.Notification) chan *types.Notification {
+	notificationCh := make(chan *types.Notification)
 	go func() {
 		for _, notification := range notifications {
 			notificationCh <- notification
 		}
 	}()
-	timekit.Sleep("1s")
+	time.Sleep(1 * time.Second)
 
 	return notificationCh
 }

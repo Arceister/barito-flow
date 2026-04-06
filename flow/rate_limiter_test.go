@@ -2,9 +2,9 @@ package flow
 
 import (
 	"testing"
+	"time"
 
 	. "github.com/BaritoLog/go-boilerplate/testkit"
-	"github.com/BaritoLog/go-boilerplate/timekit"
 )
 
 func TestRateLimiter_IsHitMax_CreateNewBucketIfNotExist(t *testing.T) {
@@ -28,7 +28,7 @@ func TestRateLimiter(t *testing.T) {
 	limiter.PutBucket("def", NewLeakyBucket(max))
 	limiter.Start()
 
-	timekit.Sleep("1ms")
+	time.Sleep(1 * time.Millisecond)
 	FatalIf(t, !limiter.IsStart(), "limiter should be start")
 
 	for i := int32(0); i < max; i++ {
@@ -39,12 +39,12 @@ func TestRateLimiter(t *testing.T) {
 	FatalIf(t, limiter.IsHitLimit("def", 1, max), "it should be still have token at def")
 
 	// wait until refill time
-	timekit.Sleep("2s")
+	time.Sleep(2 * time.Second)
 	FatalIf(t, !limiter.Bucket("abc").IsFull(), "bucket must be full")
 	FatalIf(t, !limiter.Bucket("def").IsFull(), "bucket must be full")
 
 	limiter.Stop()
-	timekit.Sleep("1ms")
+	time.Sleep(1 * time.Millisecond)
 	FatalIf(t, limiter.IsStart(), "limiter should be stop")
 }
 
@@ -55,17 +55,17 @@ func TestRateLimiter_Batch(t *testing.T) {
 	limiter.PutBucket("abc", NewLeakyBucket(max))
 	limiter.Start()
 
-	timekit.Sleep("1ms")
+	time.Sleep(1 * time.Millisecond)
 	FatalIf(t, !limiter.IsStart(), "limiter should be start")
 
 	FatalIf(t, !limiter.IsHitLimit("abc", 6, max), "it should be hit limit at abc")
 
 	// wait until refill time
-	timekit.Sleep("1s")
+	time.Sleep(1 * time.Second)
 	FatalIf(t, !limiter.Bucket("abc").IsFull(), "bucket must be full")
 
 	limiter.Stop()
-	timekit.Sleep("1ms")
+	time.Sleep(1 * time.Millisecond)
 	FatalIf(t, limiter.IsStart(), "limiter should be stop")
 }
 
@@ -76,7 +76,7 @@ func TestRateLimiter_IsHitLimit_UpdateMax(t *testing.T) {
 	limiter.PutBucket("abc", NewLeakyBucket(max))
 	limiter.Start()
 
-	timekit.Sleep("1s")
+	time.Sleep(1 * time.Second)
 	FatalIf(t, limiter.IsHitLimit("abc", 1, max), "it should be still have token at abc: %d", 0)
 	FatalIf(t, limiter.IsHitLimit("abc", 1, max), "it should be still have token at abc: %d", 1)
 	FatalIf(t, limiter.IsHitLimit("abc", 1, max), "it should be still have token at abc: %d", 2)

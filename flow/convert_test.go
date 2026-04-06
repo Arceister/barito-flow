@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	. "github.com/BaritoLog/go-boilerplate/testkit"
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	pb "github.com/bentol/barito-proto/producer"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"

@@ -13,8 +13,7 @@ import (
 	"github.com/BaritoLog/barito-flow/flow/types"
 	"github.com/BaritoLog/barito-flow/mock"
 	. "github.com/BaritoLog/go-boilerplate/testkit"
-	"github.com/BaritoLog/go-boilerplate/timekit"
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	pb "github.com/bentol/barito-proto/producer"
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
@@ -64,7 +63,7 @@ func TestBaritoConsumerService(t *testing.T) {
 	FatalIf(t, !strings.HasPrefix(service.eventWorkerGroupID, PrefixEventGroupID), "eventWorkerGroup should be have prefix")
 
 	// service.Start() execute goroutine, so wait 1ms to make sure it come in to mainLoop
-	timekit.Sleep("1ms")
+	time.Sleep(1 * time.Millisecond)
 
 	defer service.Close()
 
@@ -305,7 +304,7 @@ func TestHaltAllWorker(t *testing.T) {
 	FatalIf(t, !strings.HasPrefix(service.eventWorkerGroupID, PrefixEventGroupID), "eventWorkerGroup should be have prefix")
 
 	// service.Start() execute goroutine, so wait 1ms to make sure it come in to mainLoop
-	timekit.Sleep("1ms")
+	time.Sleep(1 * time.Millisecond)
 
 	worker := service.NewTopicEventWorker()
 	workerMap := service.WorkerMap()
@@ -336,7 +335,7 @@ func TestResumeWorker(t *testing.T) {
 	FatalIfError(t, err)
 	FatalIf(t, service.isHalt, "Consumer Worker should be started")
 	// service.Start() execute goroutine, so wait 1ms to make sure it come in to mainLoop
-	timekit.Sleep("1ms")
+	time.Sleep(1 * time.Millisecond)
 	defer service.Close()
 }
 
