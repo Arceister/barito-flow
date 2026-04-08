@@ -15,7 +15,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 
-	_ "github.com/mostynb/go-grpc-compression/zstd"
+	// Using custom zstd compressor instead of go-grpc-compression/zstd
+	// to avoid memory leak from runtime.SetFinalizer-based decoder pooling
 )
 
 const (
