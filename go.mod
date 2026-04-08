@@ -15,7 +15,6 @@ require (
 	github.com/golang/protobuf v1.5.4
 	github.com/hashicorp/consul/api v1.15.2
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/mostynb/go-grpc-compression v1.2.3
 	github.com/olivere/elastic v6.2.35+incompatible
 	github.com/olivere/elastic/v7 v7.0.32
 	github.com/prometheus/client_golang v1.13.0
