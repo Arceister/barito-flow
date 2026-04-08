@@ -149,7 +149,7 @@ func ActionBaritoProducerService(c *cli.Context) (err error) {
 	config.Producer.Retry.Max = maxRetry
 	config.Producer.Return.Successes = true
 	config.Producer.Compression = sarama.CompressionZSTD
-	config.Producer.CompressionLevel = sarama.CompressionLevelDefault
+	config.Producer.CompressionLevel = 1 // zstd.SpeedFastest — lower memory usage per encode
 	config.Metadata.RefreshFrequency = 1 * time.Minute
 	config.Version = sarama.V2_6_0_0 // TODO: get version from env
 
