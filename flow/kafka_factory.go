@@ -43,7 +43,7 @@ func (f kafkaFactory) MakeClusterConsumer(groupID, topic string, initialOffset i
 	}
 
 	adapter := newConsumerGroupAdapter(group, []string{topic})
-	go adapter.consume(context.Background())
+	go adapter.consume(adapter.ctx)
 
 	return adapter, nil
 }
@@ -64,15 +64,20 @@ type consumerGroupAdapter struct {
 	notifications chan *types.Notification
 	errors        chan error
 	topics        []string
+	ctx           context.Context
+	cancel        context.CancelFunc
 }
 
 func newConsumerGroupAdapter(group sarama.ConsumerGroup, topics []string) *consumerGroupAdapter {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &consumerGroupAdapter{
 		group:         group,
 		topics:        topics,
 		messages:      make(chan *sarama.ConsumerMessage, 256),
 		notifications: make(chan *types.Notification, 16),
 		errors:        make(chan error, 16),
+		ctx:           ctx,
+		cancel:        cancel,
 	}
 }
 
@@ -144,5 +149,10 @@ func (a *consumerGroupAdapter) CommitOffsets() error {
 }
 
 func (a *consumerGroupAdapter) Close() error {
-	return a.group.Close()
+	a.cancel()
+	err := a.group.Close()
+	close(a.messages)
+	close(a.notifications)
+	close(a.errors)
+	return err
 }
