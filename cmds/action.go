@@ -125,6 +125,7 @@ func ActionBaritoProducerService(c *cli.Context) (err error) {
 	ignoreKafkaOptions := configProducerIgnoreKafkaOptions()
 	topicPrefix := configKafkaTopicPrefix()
 	topicSuffix := configKafkaTopicSuffix()
+	prome.InitSuffixRegex(topicSuffix)
 	kafkaMaxRetry := configKafkaMaxRetry()
 	kafkaRetryInterval := configKafkaRetryInterval()
 	newTopicEventName := configNewTopicEvent()

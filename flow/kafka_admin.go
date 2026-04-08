@@ -72,6 +72,11 @@ func (a *kafkaAdmin) Exist(topic string) bool {
 }
 
 func (a *kafkaAdmin) AddTopic(topic string) {
+	for _, t := range a.topics {
+		if t == topic {
+			return
+		}
+	}
 	a.topics = append(a.topics, topic)
 }
 

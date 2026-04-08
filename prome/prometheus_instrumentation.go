@@ -46,6 +46,18 @@ var producerTPSExceededLogBytes *prometheus.CounterVec
 var redactionEnabledTotal *prometheus.GaugeVec
 
 var indexDatePattern *regexp.Regexp = regexp.MustCompile(`-\d{4}\.\d{2}\.\d{2}$`)
+var suffixRegex *regexp.Regexp
+
+func InitSuffixRegex(suffix string) {
+	suffixRegex = regexp.MustCompile(suffix + "$")
+}
+
+func stripSuffix(topic string) string {
+	if suffixRegex == nil {
+		return topic
+	}
+	return suffixRegex.ReplaceAllString(topic, "")
+}
 
 var logStoredErrorMap map[string]string = map[string]string{
 	"the final mapping":           "multiple_type",
@@ -155,17 +167,13 @@ func IncreaseConsumerTimberConvertError(index string) {
 }
 
 func ObserveByteIngestion(topic string, suffix string, timber *pb.Timber) {
-	re := regexp.MustCompile(suffix + "$")
-	appName := re.ReplaceAllString(topic, "")
-	b, _ := proto.Marshal(timber)
-	producerTotalLogBytesIngested.WithLabelValues(appName).Add(math.Round(float64(len(b))))
+	appName := stripSuffix(topic)
+	producerTotalLogBytesIngested.WithLabelValues(appName).Add(math.Round(float64(proto.Size(timber))))
 }
 
 func ObserveByteIngestionCollection(topic string, suffix string, timberCollection *pb.TimberCollection) {
-	re := regexp.MustCompile(suffix + "$")
-	appName := re.ReplaceAllString(topic, "")
-	b, _ := proto.Marshal(timberCollection)
-	producerTotalLogBytesIngested.WithLabelValues(appName).Add(math.Round(float64(len(b))))
+	appName := stripSuffix(topic)
+	producerTotalLogBytesIngested.WithLabelValues(appName).Add(math.Round(float64(proto.Size(timberCollection))))
 }
 
 func ObserveRedactByteIngestion(appName string, doc string) {
@@ -173,10 +181,8 @@ func ObserveRedactByteIngestion(appName string, doc string) {
 }
 
 func ObserveTPSExceededBytes(topic string, suffix string, timber *pb.Timber) {
-	re := regexp.MustCompile(suffix + "$")
-	appName := re.ReplaceAllString(topic, "")
-	b, _ := proto.Marshal(timber)
-	producerTPSExceededLogBytes.WithLabelValues(appName).Add(math.Round(float64(len(b))))
+	appName := stripSuffix(topic)
+	producerTPSExceededLogBytes.WithLabelValues(appName).Add(math.Round(float64(proto.Size(timber))))
 }
 
 func IncreaseLogStoredCounter(index string, result string, status int, errorDetail *elastic.ErrorDetails) {
