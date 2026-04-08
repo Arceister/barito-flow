@@ -150,8 +150,6 @@ func ActionBaritoProducerService(c *cli.Context) (err error) {
 	config.Producer.Compression = sarama.CompressionZSTD
 	config.Producer.CompressionLevel = sarama.CompressionLevelDefault
 	config.Metadata.RefreshFrequency = 1 * time.Minute
-	config.Producer.Flush.Bytes = 16000
-	config.Producer.Flush.Frequency = 100 * time.Millisecond
 	config.Version = sarama.V2_6_0_0 // TODO: get version from env
 
 	// gubernator

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/BaritoLog/barito-flow/flow"
@@ -59,6 +60,8 @@ func (c *metricMarketCallback) OnCallback(instr instru.Instrumentation) (err err
 	if err != nil {
 		return
 	}
+	defer resp.Body.Close()
+	io.Copy(io.Discard, resp.Body)
 
 	if resp.StatusCode != 200 {
 		err = fmt.Errorf("Got status code %d", resp.StatusCode)

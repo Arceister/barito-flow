@@ -18,10 +18,14 @@ func NewLeakyBucket(max int32) *LeakyBucket {
 }
 
 func (b *LeakyBucket) Token() int32 {
+	b.lock.Lock()
+	defer b.lock.Unlock()
 	return b.token
 }
 
 func (b *LeakyBucket) Max() int32 {
+	b.lock.Lock()
+	defer b.lock.Unlock()
 	return b.max
 }
 
@@ -35,21 +39,23 @@ func (b *LeakyBucket) UpdateMax(newMax int32) {
 }
 
 func (b *LeakyBucket) IsFull() bool {
+	b.lock.Lock()
+	defer b.lock.Unlock()
 	return b.token == b.max
 }
 
 func (l *LeakyBucket) Refill() {
+	l.lock.Lock()
 	l.token = l.max
+	l.lock.Unlock()
 }
 
 func (l *LeakyBucket) Take(count int) bool {
-
+	l.lock.Lock()
+	defer l.lock.Unlock()
 	if (l.token - int32(count)) < 0 {
 		return false
 	}
-
-	l.lock.Lock()
 	l.token = l.token - int32(count)
-	l.lock.Unlock()
 	return true
 }

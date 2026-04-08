@@ -66,6 +66,7 @@ type consumerGroupAdapter struct {
 	topics        []string
 	ctx           context.Context
 	cancel        context.CancelFunc
+	done          chan struct{}
 }
 
 func newConsumerGroupAdapter(group sarama.ConsumerGroup, topics []string) *consumerGroupAdapter {
@@ -78,19 +79,24 @@ func newConsumerGroupAdapter(group sarama.ConsumerGroup, topics []string) *consu
 		errors:        make(chan error, 16),
 		ctx:           ctx,
 		cancel:        cancel,
+		done:          make(chan struct{}),
 	}
 }
 
 func (a *consumerGroupAdapter) consume(ctx context.Context) {
+	defer close(a.done)
 	for {
+		if ctx.Err() != nil {
+			return
+		}
 		if err := a.group.Consume(ctx, a.topics, a); err != nil {
+			if ctx.Err() != nil {
+				return
+			}
 			select {
 			case a.errors <- err:
 			default:
 			}
-		}
-		if ctx.Err() != nil {
-			return
 		}
 	}
 }
@@ -151,6 +157,7 @@ func (a *consumerGroupAdapter) CommitOffsets() error {
 func (a *consumerGroupAdapter) Close() error {
 	a.cancel()
 	err := a.group.Close()
+	<-a.done // wait for consume goroutine to exit
 	close(a.messages)
 	close(a.notifications)
 	close(a.errors)
