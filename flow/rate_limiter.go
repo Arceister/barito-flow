@@ -26,15 +26,18 @@ type RateLimiter interface {
 type rateLimiter struct {
 	isStart   bool
 	duration  int32
+	ticker    *time.Ticker
 	tick      <-chan time.Time
 	stop      chan int
 	bucketMap map[string]*LeakyBucket
 }
 
 func NewRateLimiter(duration int) RateLimiter {
+	t := time.NewTicker(time.Duration(duration) * time.Second)
 	return &rateLimiter{
 		duration:  int32(duration),
-		tick:      time.Tick(time.Duration(duration) * time.Second),
+		ticker:    t,
+		tick:      t.C,
 		stop:      make(chan int),
 		bucketMap: make(map[string]*LeakyBucket),
 	}
@@ -57,6 +60,7 @@ func (l *rateLimiter) Start() {
 }
 
 func (l *rateLimiter) Stop() {
+	l.ticker.Stop()
 	go func() {
 		l.stop <- 1
 	}()
