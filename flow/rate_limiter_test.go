@@ -10,8 +10,11 @@ import (
 func TestRateLimiter_IsHitMax_CreateNewBucketIfNotExist(t *testing.T) {
 	limiter := &rateLimiter{
 		duration:  1,
+		ticker:    time.NewTicker(1 * time.Second),
+		stop:      make(chan struct{}),
 		bucketMap: make(map[string]*LeakyBucket),
 	}
+	defer limiter.ticker.Stop()
 
 	isHit := limiter.IsHitLimit("some-topic", 1, 13)
 

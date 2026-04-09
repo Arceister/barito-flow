@@ -1,6 +1,7 @@
 package flow
 
 import (
+	"sync/atomic"
 	"time"
 )
 
@@ -24,18 +25,18 @@ type RateLimiter interface {
 }
 
 type rateLimiter struct {
-	isStart   bool
+	isStart   atomic.Bool
 	duration  int32
-	tick      <-chan time.Time
-	stop      chan int
+	ticker    *time.Ticker
+	stop      chan struct{}
 	bucketMap map[string]*LeakyBucket
 }
 
 func NewRateLimiter(duration int) RateLimiter {
 	return &rateLimiter{
 		duration:  int32(duration),
-		tick:      time.Tick(time.Duration(duration) * time.Second),
-		stop:      make(chan int),
+		ticker:    time.NewTicker(time.Duration(duration) * time.Second),
+		stop:      make(chan struct{}),
 		bucketMap: make(map[string]*LeakyBucket),
 	}
 }
@@ -57,13 +58,12 @@ func (l *rateLimiter) Start() {
 }
 
 func (l *rateLimiter) Stop() {
-	go func() {
-		l.stop <- 1
-	}()
+	close(l.stop)
+	l.ticker.Stop()
 }
 
 func (l *rateLimiter) IsStart() bool {
-	return l.isStart
+	return l.isStart.Load()
 }
 
 func (l *rateLimiter) PutBucket(topic string, bucket *LeakyBucket) {
@@ -75,13 +75,13 @@ func (l *rateLimiter) Bucket(topic string) *LeakyBucket {
 }
 
 func (l *rateLimiter) loopRefillBuckets() {
-	l.isStart = true
+	l.isStart.Store(true)
 	for {
 		select {
-		case <-l.tick:
+		case <-l.ticker.C:
 			l.refillBuckets()
 		case <-l.stop:
-			l.isStart = false
+			l.isStart.Store(false)
 			return
 		}
 	}

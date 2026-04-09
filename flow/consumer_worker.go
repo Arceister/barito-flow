@@ -2,6 +2,8 @@ package flow
 
 import (
 	"fmt"
+	"sync"
+	"sync/atomic"
 
 	"github.com/BaritoLog/barito-flow/flow/types"
 	"github.com/BaritoLog/barito-flow/prome"
@@ -16,12 +18,14 @@ const (
 
 type consumerWorker struct {
 	name               string
-	isStart            bool
+	isStart            atomic.Bool
 	consumer           types.ClusterConsumer
 	onErrorFunc        func(error)
 	onSuccessFunc      func(*sarama.ConsumerMessage)
 	onNotificationFunc func(*types.Notification)
-	stop               chan int
+	stop               chan struct{}
+	wg                 sync.WaitGroup
+	once               sync.Once
 	lastMessage        *sarama.ConsumerMessage
 }
 
@@ -29,37 +33,37 @@ func NewConsumerWorker(name string, consumer types.ClusterConsumer) types.Consum
 	return &consumerWorker{
 		name:     name,
 		consumer: consumer,
-		stop:     make(chan int),
+		stop:     make(chan struct{}),
 	}
 }
 
 func (w *consumerWorker) Start() {
 	log.Warnf("Start worker '%s'", w.name)
 
+	w.wg.Add(3)
 	go w.loopErrors()
 	go w.loopNotification()
 	go w.loopMain()
 }
 
 func (w *consumerWorker) Stop() {
+	w.once.Do(func() {
+		close(w.stop)
+	})
 	if w.consumer != nil {
 		w.consumer.Close()
 	}
-
-	go func() {
-		w.stop <- 1
-	}()
 }
 
 func (w *consumerWorker) Halt() {
-	go func() {
-		w.stop <- 1
-	}()
+	w.once.Do(func() {
+		close(w.stop)
+	})
 	log.Warnf("Halt worker '%s'", w.name)
 }
 
 func (w *consumerWorker) IsStart() bool {
-	return w.isStart
+	return w.isStart.Load()
 }
 
 func (w *consumerWorker) OnError(f func(error)) {
@@ -84,7 +88,8 @@ func (w *consumerWorker) OnConsumerFlush() error {
 }
 
 func (w *consumerWorker) loopMain() {
-	w.isStart = true
+	defer w.wg.Done()
+	w.isStart.Store(true)
 	for {
 		select {
 		case message, ok := <-w.consumer.Messages():
@@ -94,21 +99,41 @@ func (w *consumerWorker) loopMain() {
 				w.consumer.MarkOffset(message, "")
 			}
 		case <-w.stop:
-			w.isStart = false
+			w.isStart.Store(false)
 			return
 		}
 	}
 }
 
 func (w *consumerWorker) loopNotification() {
-	for notification := range w.consumer.Notifications() {
-		w.fireNotification(notification)
+	defer w.wg.Done()
+	ch := w.consumer.Notifications()
+	for {
+		select {
+		case notification, ok := <-ch:
+			if !ok {
+				return
+			}
+			w.fireNotification(notification)
+		case <-w.stop:
+			return
+		}
 	}
 }
 
 func (w *consumerWorker) loopErrors() {
-	for err := range w.consumer.Errors() {
-		w.fireError(errkit.Concat(RetrieveMessageFailedError, err))
+	defer w.wg.Done()
+	ch := w.consumer.Errors()
+	for {
+		select {
+		case err, ok := <-ch:
+			if !ok {
+				return
+			}
+			w.fireError(errkit.Concat(RetrieveMessageFailedError, err))
+		case <-w.stop:
+			return
+		}
 	}
 }
 

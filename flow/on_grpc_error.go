@@ -10,17 +10,17 @@ func onLimitExceededGrpc() error {
 }
 
 func onBadRequestGrpc(err error) error {
-	return status.Errorf(codes.InvalidArgument, err.Error())
+	return status.Errorf(codes.InvalidArgument, "%s", err.Error())
 }
 
 func onStoreErrorGrpc(err error) error {
-	return status.Errorf(codes.FailedPrecondition, err.Error())
+	return status.Errorf(codes.FailedPrecondition, "%s", err.Error())
 }
 
 func onCreateTopicErrorGrpc(err error) error {
-	return status.Errorf(codes.Unavailable, err.Error())
+	return status.Errorf(codes.Unavailable, "%s", err.Error())
 }
 
 func onSendCreateTopicErrorGrpc(err error) error {
-	return status.Errorf(codes.Unavailable, err.Error())
+	return status.Errorf(codes.Unavailable, "%s", err.Error())
 }

@@ -50,7 +50,7 @@ func (f *dummyKafkaFactory) MakeConsumerWorker(name string, consumer types.Clust
 
 func (f *dummyKafkaFactory) Expect_MakeClusterConsumer_AlwaysError(errMsg string) {
 	f.MakeClusterConsumerFunc = func(groupID, topic string, initialOffset int64) (types.ClusterConsumer, error) {
-		return nil, fmt.Errorf(errMsg)
+		return nil, fmt.Errorf("%s", errMsg)
 	}
 }
 
@@ -76,13 +76,13 @@ func (f *dummyKafkaFactory) Expect_MakeClusterConsumer_ConsumerSpawnWorkerErrorC
 			return consumer, nil
 		}
 
-		return nil, fmt.Errorf(errMsg)
+		return nil, fmt.Errorf("%s", errMsg)
 	}
 }
 
 func (f *dummyKafkaFactory) Expect_MakeKafkaAdmin_AlwaysError(errMsg string) {
 	f.MakeKafkaAdminFunc = func() (admin types.KafkaAdmin, err error) {
-		return nil, fmt.Errorf(errMsg)
+		return nil, fmt.Errorf("%s", errMsg)
 	}
 }
 
@@ -105,6 +105,6 @@ func (f *dummyKafkaFactory) Expect_MakeKafkaAdmin_ProducerServiceSuccess(ctrl *g
 
 func (f *dummyKafkaFactory) Expect_MakeSyncProducerFunc_AlwaysError(errMsg string) {
 	f.MakeSyncProducerFunc = func() (producer sarama.SyncProducer, err error) {
-		return nil, fmt.Errorf(errMsg)
+		return nil, fmt.Errorf("%s", errMsg)
 	}
 }

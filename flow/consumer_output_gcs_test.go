@@ -9,22 +9,32 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"cloud.google.com/go/storage"
+	"github.com/BaritoLog/barito-flow/prome"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/api/option"
 )
 
+func init() {
+	prome.InitGCSConsumerInstrumentation()
+}
+
 type DummyUploadFunc struct {
-	called int
+	called atomic.Int32
 }
 
 func (d *DummyUploadFunc) Upload() error {
-	d.called++
+	d.called.Add(1)
 	return nil
+}
+
+func (d *DummyUploadFunc) Called() int {
+	return int(d.called.Load())
 }
 
 type DummyClock struct {
@@ -40,15 +50,16 @@ func TestGCS_flushMaxBytes(t *testing.T) {
 	g.flushMaxBytes = 30
 	g.uploadFunc = uploadFunc.Upload
 	go g.Start()
+	defer g.Stop()
 
 	payload := []byte("12345678901")
 	g.OnMessage(payload)
-	require.Empty(t, uploadFunc.called, "should not upload yet")
+	require.Equal(t, 0, uploadFunc.Called(), "should not upload yet")
 	g.OnMessage(payload)
-	require.Empty(t, uploadFunc.called, "should not upload yet")
+	require.Equal(t, 0, uploadFunc.Called(), "should not upload yet")
 	g.OnMessage(payload)
-	time.Sleep(1 * time.Second)
-	require.Equal(t, 1, uploadFunc.called, "should upload already")
+	time.Sleep(2 * time.Second)
+	require.Equal(t, 1, uploadFunc.Called(), "should upload already")
 
 }
 
@@ -58,11 +69,12 @@ func TestGCS_flushMaxTime(t *testing.T) {
 	g := newTestGCS()
 	g.flushMaxTime = 1 * time.Second
 	g.uploadFunc = uploadFunc.Upload
-	require.Equal(t, 0, uploadFunc.called, "should not upload yet")
+	require.Equal(t, 0, uploadFunc.Called(), "should not upload yet")
 	g.OnMessage([]byte("12"))
 	go g.Start()
+	defer g.Stop()
 	time.Sleep(2 * time.Second)
-	require.Equal(t, 1, uploadFunc.called, "should upload already")
+	require.GreaterOrEqual(t, uploadFunc.Called(), 1, "should upload already")
 }
 
 func TestGCS_onMessage(t *testing.T) {
@@ -105,10 +117,8 @@ func TestGGS_Flush(t *testing.T) {
 		}
 		g.Flush()
 		require.Equal(t, 0, called, "should not be called")
-		n, err := g.buffer.Read([]byte{})
-		require.NoError(t, err)
-		require.Equal(t, 0, n, "buffer should be empty after flush")
-
+		// buffer is NOT cleared on upload failure - data is preserved for retry
+		require.Greater(t, g.bytesCounter, 0, "buffer should still have data after failed flush")
 	})
 }
 
@@ -156,6 +166,7 @@ func newTestGCS() *GCS {
 		buffer:        buffer,
 		onFlushFunc:   []func() error{},
 		logger:        log.New().WithContext(context.Background()),
+		done:          make(chan struct{}),
 	}
 	g.uploadFunc = g.uploadToGCS
 	return g

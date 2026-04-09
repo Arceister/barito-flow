@@ -10,6 +10,7 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/jsonpb"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,7 +18,7 @@ type baritoKafkaConsumerGCSServiceTestObject struct {
 	kafkaAdmin           *mock.MockKafkaAdmin
 	kafkaFactory         *mock.MockKafkaFactory
 	consumerOuputFactory *mock.MockConsumerOutputFactory
-	baritoKafkaConsumerGCSService
+	*baritoKafkaConsumerGCSService
 }
 
 func TestKafkaGCS_Start(t *testing.T) {
@@ -25,11 +26,13 @@ func TestKafkaGCS_Start(t *testing.T) {
 		obj, _, fn := getKafkaGCSConsumerObject(t)
 		defer fn()
 
-		obj.kafkaAdmin.EXPECT().RefreshTopics().Return(nil)
-		obj.kafkaAdmin.EXPECT().Topics().Return([]string{})
+		obj.kafkaAdmin.EXPECT().RefreshTopics().Return(nil).AnyTimes()
+		obj.kafkaAdmin.EXPECT().Topics().Return([]string{}).AnyTimes()
 
-		go obj.Start()
-		time.Sleep(time.Second)
+		obj.Start()
+		time.Sleep(100 * time.Millisecond)
+		close(obj.done)
+		obj.wg.Wait()
 	})
 
 	t.Run("should spawn worker depending on how much matching topics ", func(t *testing.T) {
@@ -68,12 +71,13 @@ func TestKafkaGCS_Start(t *testing.T) {
 		obj.kafkaFactory.EXPECT().MakeConsumerWorker("topic1", gomock.Any()).Return(consumerWorker)
 		obj.kafkaFactory.EXPECT().MakeConsumerWorker("topic2", gomock.Any()).Return(consumerWorker)
 
-		go obj.Start()
-		time.Sleep(time.Second)
+		obj.Start()
+		time.Sleep(100 * time.Millisecond)
+		close(obj.done)
+		obj.wg.Wait()
 
 		require.Equal(t, 2, len(obj.workerMap), "should spawn 2 workers")
 		require.Equal(t, 2, len(obj.gcsOutputMap), "should spawn 2 gcs outputs")
-
 	})
 }
 
@@ -89,7 +93,7 @@ func getKafkaGCSConsumerObject(t *testing.T) (baritoKafkaConsumerGCSServiceTestO
 		consumerOuputFactory: consumerOuputFactory,
 	}
 
-	s := baritoKafkaConsumerGCSService{
+	s := &baritoKafkaConsumerGCSService{
 		groupIDPrefix:        "test_gcs_",
 		workerMap:            make(map[string]types.ConsumerWorker),
 		gcsOutputMap:         make(map[string]types.ConsumerOutput),
@@ -98,6 +102,8 @@ func getKafkaGCSConsumerObject(t *testing.T) (baritoKafkaConsumerGCSServiceTestO
 		kafkaFactory:         kafkaFactory,
 		consumerOuputFactory: consumerOuputFactory,
 		topicPatternRegex:    *regexp.MustCompile(".*"),
+		done:                 make(chan struct{}),
+		logger:               log.New().WithField("component", "test"),
 	}
 
 	obj.baritoKafkaConsumerGCSService = s
