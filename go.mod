@@ -149,4 +149,4 @@ require (
 	google.golang.org/protobuf v1.34.1 // indirect
 )
 
-replace github.com/IBM/sarama => github.com/Arceister/sarama v0.0.0-20260408100932-7975a19e9e32
+replace github.com/IBM/sarama => github.com/Arceister/sarama v0.0.0-20260409090341-78117ca2aa3d
