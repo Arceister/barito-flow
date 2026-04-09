@@ -73,8 +73,8 @@ func newConsumerGroupAdapter(group sarama.ConsumerGroup, topics []string) *consu
 	return &consumerGroupAdapter{
 		group:         group,
 		topics:        topics,
-		messages:      make(chan *sarama.ConsumerMessage, 256),
-		notifications: make(chan *types.Notification, 16),
+		messages:      make(chan *sarama.ConsumerMessage),
+		notifications: make(chan *types.Notification),
 		errors:        make(chan error, 16),
 		ctx:           ctx,
 		cancel:        cancel,
@@ -118,6 +118,22 @@ func (a *consumerGroupAdapter) Cleanup(_ sarama.ConsumerGroupSession) error {
 
 func (a *consumerGroupAdapter) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
+		// Copy Key and Value to break sub-slice references to the
+		// decompressed batch buffer allocated in RecordBatch.decode.
+		// Without this, each ConsumerMessage pins the entire
+		// decompressed buffer (potentially MBs) via a tiny sub-slice,
+		// causing unbounded heap growth.
+		if msg.Key != nil {
+			key := make([]byte, len(msg.Key))
+			copy(key, msg.Key)
+			msg.Key = key
+		}
+		if msg.Value != nil {
+			value := make([]byte, len(msg.Value))
+			copy(value, msg.Value)
+			msg.Value = value
+		}
+
 		select {
 		case a.messages <- msg:
 		case <-session.Context().Done():
