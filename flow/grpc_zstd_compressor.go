@@ -13,16 +13,22 @@ const zstdCompressorName = "zstd"
 
 func init() {
 	enc, _ := zstd.NewWriter(nil, zstd.WithWindowSize(512*1024))
-	dec, _ := zstd.NewReader(nil, zstd.WithDecoderConcurrency(0))
-	encoding.RegisterCompressor(&zstdCompressor{
+	c := &zstdCompressor{
 		encoder: enc,
-		decoder: dec,
-	})
+	}
+	c.decoderPool.New = func() interface{} {
+		dec, _ := zstd.NewReader(nil,
+			zstd.WithDecoderConcurrency(1),
+			zstd.WithDecoderLowmem(true),
+		)
+		return dec
+	}
+	encoding.RegisterCompressor(c)
 }
 
 type zstdCompressor struct {
-	encoder *zstd.Encoder
-	decoder *zstd.Decoder
+	encoder     *zstd.Encoder
+	decoderPool sync.Pool
 }
 
 func (c *zstdCompressor) Compress(w io.Writer) (io.WriteCloser, error) {
@@ -48,28 +54,38 @@ func (z *zstdWriteCloser) Close() error {
 	return err
 }
 
-var decompressBufPool = sync.Pool{
-	New: func() interface{} {
-		return &bytes.Buffer{}
-	},
+type pooledDecoderReader struct {
+	decoder *zstd.Decoder
+	pool    *sync.Pool
+}
+
+func (r *pooledDecoderReader) Read(p []byte) (int, error) {
+	n, err := r.decoder.Read(p)
+	if err != nil {
+		r.returnToPool()
+	}
+	return n, err
+}
+
+func (r *pooledDecoderReader) returnToPool() {
+	if r.decoder != nil {
+		r.decoder.Reset(nil)
+		r.pool.Put(r.decoder)
+		r.decoder = nil
+	}
 }
 
 func (c *zstdCompressor) Decompress(r io.Reader) (io.Reader, error) {
-	buf := decompressBufPool.Get().(*bytes.Buffer)
-	buf.Reset()
-
-	if _, err := io.Copy(buf, r); err != nil {
-		decompressBufPool.Put(buf)
+	decoder := c.decoderPool.Get().(*zstd.Decoder)
+	if err := decoder.Reset(r); err != nil {
+		c.decoderPool.Put(decoder)
 		return nil, err
 	}
 
-	decompressed, err := c.decoder.DecodeAll(buf.Bytes(), nil)
-	decompressBufPool.Put(buf)
-	if err != nil {
-		return nil, err
-	}
-
-	return bytes.NewReader(decompressed), nil
+	return &pooledDecoderReader{
+		decoder: decoder,
+		pool:    &c.decoderPool,
+	}, nil
 }
 
 func (c *zstdCompressor) Name() string {
