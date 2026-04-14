@@ -3,6 +3,7 @@ package flow
 import (
 	"fmt"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/BaritoLog/barito-flow/flow/types"
@@ -34,7 +35,8 @@ type baritoKafkaConsumerGCSService struct {
 	timberToSimplerFormat bool
 
 	logger *log.Entry
-	isStop bool
+	done   chan struct{}
+	wg     sync.WaitGroup
 }
 
 func NewBaritoKafkaConsumerGCSFromEnv(kafkaFactory types.KafkaFactory, consumerOutputFactory types.ConsumerOutputFactory) BaritoConsumerService {
@@ -57,49 +59,60 @@ func NewBaritoKafkaConsumerGCSFromEnv(kafkaFactory types.KafkaFactory, consumerO
 		marshaler:             &jsonpb.Marshaler{},
 		timberToSimplerFormat: settings.TimberToSimplerFormat,
 		logger:                log.New().WithField("component", "BaritoKafkaConsumerGCS"),
+		done:                  make(chan struct{}),
 	}
 	return s
 }
 
 func (s *baritoKafkaConsumerGCSService) Start() error {
 	s.logger.Warn("Start Barito Kafka Consumer GCS Service")
+	s.wg.Add(1)
 	go func() {
+		defer s.wg.Done()
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+
+		// Run immediately on start, then on ticker
+		s.refreshAndSpawnWorkers()
+
 		for {
-			if s.isStop {
-				break
+			select {
+			case <-s.done:
+				return
+			case <-ticker.C:
+				s.refreshAndSpawnWorkers()
 			}
-
-			err := s.kafkaAdmin.RefreshTopics()
-			if err != nil {
-				prome.IncreaseConsumerCustomErrorTotal("kafka_admin_refresh_topics")
-				s.logger.Error(err)
-			}
-			for _, topic := range s.kafkaAdmin.Topics() {
-				if !s.topicPatternRegex.MatchString(topic) {
-					s.logger.Debug("Topic doesn't match pattern", topic)
-					continue // skip, didn't match topic pattern
-				}
-
-				if _, ok := s.workerMap[topic]; ok {
-					s.logger.Debug("Topic already being handled", topic)
-					continue // skip, already being handled
-				}
-				s.logger.Warn("Handling topic ", topic)
-
-				// initiate kafka consumer and gcs types.ConsumerOutput
-				err := s.spawnLogsWorker(topic, sarama.OffsetOldest)
-				if err != nil {
-					prome.IncreaseConsumerCustomErrorTotalf("spawn_logs_worker_%s", topic)
-					s.logger.WithField("topic", topic).Error(err)
-					continue
-				}
-			}
-
-			time.Sleep(1 * time.Minute)
 		}
 	}()
 
 	return nil
+}
+
+func (s *baritoKafkaConsumerGCSService) refreshAndSpawnWorkers() {
+	err := s.kafkaAdmin.RefreshTopics()
+	if err != nil {
+		prome.IncreaseConsumerCustomErrorTotal("kafka_admin_refresh_topics")
+		s.logger.Error(err)
+	}
+	for _, topic := range s.kafkaAdmin.Topics() {
+		if !s.topicPatternRegex.MatchString(topic) {
+			s.logger.Debug("Topic doesn't match pattern", topic)
+			continue
+		}
+
+		if _, ok := s.workerMap[topic]; ok {
+			s.logger.Debug("Topic already being handled", topic)
+			continue
+		}
+		s.logger.Warn("Handling topic ", topic)
+
+		err := s.spawnLogsWorker(topic, sarama.OffsetOldest)
+		if err != nil {
+			prome.IncreaseConsumerCustomErrorTotalf("spawn_logs_worker_%s", topic)
+			s.logger.WithField("topic", topic).Error(err)
+			continue
+		}
+	}
 }
 
 func (s *baritoKafkaConsumerGCSService) spawnLogsWorker(topic string, initialOffset int64) (err error) {
@@ -174,16 +187,16 @@ func (s *baritoKafkaConsumerGCSService) spawnLogsWorker(topic string, initialOff
 }
 
 func (s *baritoKafkaConsumerGCSService) Close() {
-	s.isStop = true
+	close(s.done)
+	s.wg.Wait()
 
 	for _, g := range s.gcsOutputMap {
 		g.Stop()
 	}
 
-	// FIXME: currently the worker will autocommit the offset when it's stopped
-	//for _, w := range s.workerMap {
-	//w.Stop()
-	//}
+	for _, w := range s.workerMap {
+		w.Stop()
+	}
 }
 
 func (s *baritoKafkaConsumerGCSService) WorkerMap() map[string]types.ConsumerWorker {
@@ -195,12 +208,3 @@ func (s *baritoKafkaConsumerGCSService) NewTopicEventWorker() types.ConsumerWork
 	return nil
 }
 
-func (s *baritoKafkaConsumerGCSService) keepRefreshKafkaTopics() {
-	for {
-		err := s.kafkaAdmin.RefreshTopics()
-		if err != nil {
-			log.Warn(err)
-		}
-		time.Sleep(1 * time.Minute)
-	}
-}

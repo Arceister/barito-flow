@@ -169,7 +169,7 @@ func TestProducerService_Produce_OnSuccess(t *testing.T) {
 
 	resp, err := srv.Produce(nil, pb.SampleTimberProto())
 	FatalIfError(t, err)
-	FatalIf(t, resp.GetTopic() != "some_topic_logs", "wrong result.Topic")
+	FatalIf(t, resp.GetTopic() != "prefix_some_topic_logs", "wrong result.Topic")
 
 	expected := `
 		# HELP barito_producer_kafka_message_stored_total Number of message stored to kafka
@@ -260,6 +260,7 @@ func TestProducerService_Start_ErrorMakeSyncProducer(t *testing.T) {
 		"newEventTopic":          "new_topic_events",
 		"grpcMaxRecvMsgSize":     20000000,
 		"ignoreKafkaOptions":     false,
+		"kafkaMessageFormat":     "",
 		"limiter":                limiter,
 	}
 
@@ -293,6 +294,7 @@ func TestProducerService_Start_ErrorMakeKafkaAdmin(t *testing.T) {
 		"newEventTopic":          "new_topic_events",
 		"grpcMaxRecvMsgSize":     20000000,
 		"ignoreKafkaOptions":     false,
+		"kafkaMessageFormat":     "",
 		"limiter":                limiter,
 	}
 

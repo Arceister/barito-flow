@@ -60,7 +60,8 @@ type GCS struct {
 
 	logger       *log.Entry
 	mu           sync.Mutex
-	isStop       bool
+	done         chan struct{}
+	once         sync.Once
 	clock        Clock
 	bytesCounter int
 }
@@ -107,6 +108,7 @@ func NewGCSFromEnv(name string) *GCS {
 		clock:         &realClock{},
 		storageClient: storageClient,
 		compressor:    settings.Compressor,
+		done:          make(chan struct{}),
 
 		buffer:      buffer,
 		onFlushFunc: make([]func() error, 0),
@@ -125,8 +127,10 @@ func (g *GCS) AddOnFlushFunc(f func() error) {
 
 // it will reject when buffer is full, the client should retry indefinitely
 func (g *GCS) OnMessage(msg []byte) error {
-	if g.isStop {
+	select {
+	case <-g.done:
 		return ErrorGCSStop
+	default:
 	}
 
 	g.mu.Lock()
@@ -145,43 +149,42 @@ func (g *GCS) OnMessage(msg []byte) error {
 
 // stopping the output, and flush the buffer
 func (g *GCS) Stop() {
-	g.logger.Info("Stopping GCS, flushing")
-	g.isStop = true
+	g.once.Do(func() {
+		if g.logger != nil {
+			g.logger.Info("Stopping GCS, flushing")
+		}
+		close(g.done)
+	})
 	g.Flush()
 }
 
 // it will create forever loop to check if flush is needed
 func (g *GCS) Start() error {
 	ticker := time.NewTicker(g.flushMaxTime)
-	var numBytes int
+	defer ticker.Stop()
+	checkTicker := time.NewTicker(1 * time.Second)
+	defer checkTicker.Stop()
 
 	for {
-		if g.isStop {
-			return nil
-		}
-
-		g.mu.Lock()
-		numBytes = g.bytesCounter
-		g.logger.Warn("buffer size: ", numBytes)
-		prome.SetConsumerGCSBufferSize(g.name, g.projectID, g.bucketName, g.bucketPath, int64(numBytes))
-		g.mu.Unlock()
-
-		if g.flushMaxBytes > 0 && numBytes >= g.flushMaxBytes {
-			g.logger.Info("buffer is full, flushing")
-			g.Flush()
-			ticker.Reset(g.flushMaxTime)
-			time.Sleep(1 * time.Second)
-			continue
-		}
-
-		// check if flush is needed depend of max item, max bytes, and max time
 		select {
+		case <-g.done:
+			return nil
 		case <-ticker.C:
 			g.logger.Info("max time reached, flushing")
 			g.Flush()
 			ticker.Reset(g.flushMaxTime)
-		default:
-			time.Sleep(1 * time.Second)
+		case <-checkTicker.C:
+			g.mu.Lock()
+			numBytes := g.bytesCounter
+			g.logger.Warn("buffer size: ", numBytes)
+			prome.SetConsumerGCSBufferSize(g.name, g.projectID, g.bucketName, g.bucketPath, int64(numBytes))
+			g.mu.Unlock()
+
+			if g.flushMaxBytes > 0 && numBytes >= g.flushMaxBytes {
+				g.logger.Info("buffer is full, flushing")
+				g.Flush()
+				ticker.Reset(g.flushMaxTime)
+			}
 		}
 	}
 }
@@ -202,10 +205,9 @@ func (g *GCS) uploadToGCS() error {
 	var w io.WriteCloser
 	w = objWriter
 
-	// TODO: use dependency injection
 	if g.compressor == "zstd" {
 		w, _ = zstd.NewWriter(w)
-	} else {
+	} else if g.compressor == "gzip" {
 		w = gzip.NewWriter(w)
 	}
 
@@ -309,6 +311,7 @@ func (f *FileBuffer) WriteTo(w io.Writer) (n int64, err error) {
 	if err != nil {
 		return 0, err
 	}
+	defer temp.Close()
 	return io.Copy(w, temp)
 }
 

@@ -1,5 +1,7 @@
 package flow
 
+import "sync/atomic"
+
 type dummyRateLimiter struct {
 	IsHitLimitFunc func(topic string, count int, maxTokenIfNotExist int32) bool
 	StartFunc      func()
@@ -7,7 +9,7 @@ type dummyRateLimiter struct {
 	IsStartFunc    func() bool
 	PutBucketFunc  func(topic string, bucket *LeakyBucket)
 	BucketFunc     func(topic string) *LeakyBucket
-	IsStartBool    bool
+	IsStartBool    atomic.Bool
 }
 
 func NewDummyRateLimiter() *dummyRateLimiter {
@@ -26,13 +28,13 @@ func (l *dummyRateLimiter) IsHitLimit(topic string, count int, maxTokenIfNotExis
 }
 func (l *dummyRateLimiter) Start() {
 	l.StartFunc()
-	l.IsStartBool = true
+	l.IsStartBool.Store(true)
 }
 func (l *dummyRateLimiter) Stop() {
 	l.StopFunc()
 }
 func (l *dummyRateLimiter) IsStart() bool {
-	return l.IsStartBool
+	return l.IsStartBool.Load()
 }
 func (l *dummyRateLimiter) PutBucket(topic string, bucket *LeakyBucket) {
 	l.PutBucketFunc(topic, bucket)

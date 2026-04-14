@@ -35,6 +35,7 @@ func (c *fakeClient) InSyncReplicas(topic string, partitionID int32) ([]int32, e
 func (c *fakeClient) OfflineReplicas(topic string, partitionID int32) ([]int32, error) {
 	return nil, nil
 }
+func (c *fakeClient) PartitionNotReadable(topic string, partition int32) bool { return false }
 func (c *fakeClient) RefreshBrokers(addrs []string) error    { return nil }
 func (c *fakeClient) RefreshMetadata(topics ...string) error { return nil }
 func (c *fakeClient) GetOffset(topic string, partitionID int32, time int64) (int64, error) {

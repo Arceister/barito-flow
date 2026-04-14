@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -38,20 +39,20 @@ func TestConsumerWorker(t *testing.T) {
 	})
 	defer ts.Close()
 
-	var got *sarama.ConsumerMessage
-	var gotNotification *types.Notification
+	var got atomic.Pointer[sarama.ConsumerMessage]
+	var gotNotification atomic.Pointer[types.Notification]
 
 	worker := NewConsumerWorker("worker", consumer)
-	worker.OnSuccess(func(message *sarama.ConsumerMessage) { got = message })
-	worker.OnNotification(func(notification *types.Notification) { gotNotification = notification })
+	worker.OnSuccess(func(message *sarama.ConsumerMessage) { got.Store(message) })
+	worker.OnNotification(func(notification *types.Notification) { gotNotification.Store(notification) })
 
 	worker.Start()
 	defer worker.Stop()
 
 	time.Sleep(2 * time.Millisecond)
 
-	FatalIf(t, got != want, "wrong message")
-	FatalIf(t, gotNotification != wantNotification, "wrong notification")
+	FatalIf(t, got.Load() != want, "wrong message")
+	FatalIf(t, gotNotification.Load() != wantNotification, "wrong notification")
 
 	expected := `
 		# HELP barito_consumer_kafka_message_incoming_total Number of messages incoming from kafka
@@ -79,17 +80,19 @@ func TestConsumerWorker_KafkaError(t *testing.T) {
 	})
 	defer ts.Close()
 
-	var gotErr error
+	var gotErr atomic.Pointer[error]
 
 	worker := NewConsumerWorker("worker", consumer)
-	worker.OnError(func(err error) { gotErr = err })
+	worker.OnError(func(err error) { gotErr.Store(&err) })
 
 	worker.Start()
 	defer worker.Stop()
 
 	time.Sleep(1 * time.Millisecond)
 
-	FatalIfWrongError(t, gotErr, "expected kafka error")
+	errPtr := gotErr.Load()
+	FatalIf(t, errPtr == nil, "expected an error")
+	FatalIfWrongError(t, *errPtr, "expected kafka error")
 }
 
 func sampleMessageChannel(messages ...*sarama.ConsumerMessage) <-chan *sarama.ConsumerMessage {

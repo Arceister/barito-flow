@@ -43,7 +43,7 @@ func (f kafkaFactory) MakeClusterConsumer(groupID, topic string, initialOffset i
 	}
 
 	adapter := newConsumerGroupAdapter(group, []string{topic})
-	go adapter.consume(context.Background())
+	go adapter.consume()
 
 	return adapter, nil
 }
@@ -64,27 +64,36 @@ type consumerGroupAdapter struct {
 	notifications chan *types.Notification
 	errors        chan error
 	topics        []string
+	ctx           context.Context
+	cancel        context.CancelFunc
 }
 
 func newConsumerGroupAdapter(group sarama.ConsumerGroup, topics []string) *consumerGroupAdapter {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &consumerGroupAdapter{
 		group:         group,
 		topics:        topics,
-		messages:      make(chan *sarama.ConsumerMessage, 256),
-		notifications: make(chan *types.Notification, 16),
+		messages:      make(chan *sarama.ConsumerMessage),
+		notifications: make(chan *types.Notification),
 		errors:        make(chan error, 16),
+		ctx:           ctx,
+		cancel:        cancel,
 	}
 }
 
-func (a *consumerGroupAdapter) consume(ctx context.Context) {
+func (a *consumerGroupAdapter) consume() {
+	defer close(a.messages)
+	defer close(a.notifications)
+	defer close(a.errors)
+
 	for {
-		if err := a.group.Consume(ctx, a.topics, a); err != nil {
+		if err := a.group.Consume(a.ctx, a.topics, a); err != nil {
 			select {
 			case a.errors <- err:
 			default:
 			}
 		}
-		if ctx.Err() != nil {
+		if a.ctx.Err() != nil {
 			return
 		}
 	}
@@ -109,6 +118,22 @@ func (a *consumerGroupAdapter) Cleanup(_ sarama.ConsumerGroupSession) error {
 
 func (a *consumerGroupAdapter) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
+		// Copy Key and Value to break sub-slice references to the
+		// decompressed batch buffer allocated in RecordBatch.decode.
+		// Without this, each ConsumerMessage pins the entire
+		// decompressed buffer (potentially MBs) via a tiny sub-slice,
+		// causing unbounded heap growth.
+		if msg.Key != nil {
+			key := make([]byte, len(msg.Key))
+			copy(key, msg.Key)
+			msg.Key = key
+		}
+		if msg.Value != nil {
+			value := make([]byte, len(msg.Value))
+			copy(value, msg.Value)
+			msg.Value = value
+		}
+
 		select {
 		case a.messages <- msg:
 		case <-session.Context().Done():
@@ -144,5 +169,6 @@ func (a *consumerGroupAdapter) CommitOffsets() error {
 }
 
 func (a *consumerGroupAdapter) Close() error {
+	a.cancel()
 	return a.group.Close()
 }

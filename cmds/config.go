@@ -39,6 +39,7 @@ const (
 	EnvProducerRateLimitResetInterval = "BARITO_PRODUCER_RATE_LIMIT_RESET_INTERVAL"
 	EnvProducerIgnoreKafkaOptions     = "BARITO_PRODUCER_IGNORE_KAFKA_OPTIONS"
 	EnvProducerMaxMessageBytes        = "BARITO_PRODUCER_MAX_MESSAGE_BYTES"
+	EnvProducerCompressionCodec       = "BARITO_PRODUCER_COMPRESSION_CODEC"
 
 	EnvConsulUrl               = "BARITO_CONSUL_URL"
 	EnvConsulKafkaName         = "BARITO_CONSUL_KAFKA_NAME"
@@ -103,6 +104,7 @@ var (
 	DefaultProducerRateLimitResetInterval = 10
 	DefaultProducerIgnoreKafkaOptions     = "false"
 	DefaultProducerMaxMessageBytes        = 1000000 // Should be set equal to or smaller than the broker's `message.max.bytes`.
+	DefaultProducerCompressionCodec       = "lz4"   // lz4 avoids the per-call heap allocation bug in sarama's zstd codec
 
 	DefaultNewTopicEventName                        = "new_topic_events"
 	DefaultElasticsearchRetrierInterval             = "30s"
@@ -114,8 +116,8 @@ var (
 	DefaultEsFlushIntervalMs                        = 500
 	DefaultConsumerGroupSessionTimeout              = 20
 	DefaultConsumerGroupHeartbeatInterval           = 6
-	DefaultConsumerMaxProcessingTime                = 500
-	DefaultConsumerChannelBufferSize                = 256
+	DefaultConsumerMaxProcessingTime                = 30000 // 30s — prevents sarama remainingLoop from triggering during normal ES slowness
+	DefaultConsumerChannelBufferSize                = 32    // reduced from 256 to limit peak memory if remainingLoop does fire
 
 	DefaultPrintTPS = "false"
 
@@ -257,6 +259,10 @@ func configProducerIgnoreKafkaOptions() bool {
 
 func configProducerMaxMessageBytes() (i int) {
 	return intEnvOrDefault(EnvProducerMaxMessageBytes, DefaultProducerMaxMessageBytes)
+}
+
+func configProducerCompressionCodec() string {
+	return stringEnvOrDefault(EnvProducerCompressionCodec, DefaultProducerCompressionCodec)
 }
 
 func configConsulKafkaName() (s string) {

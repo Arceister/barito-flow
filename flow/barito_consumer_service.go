@@ -306,6 +306,11 @@ func (s *baritoConsumerService) onStoreTimber(message *sarama.ConsumerMessage) {
 		}
 	}
 
+	// Key and Value are no longer needed after deserialization; nil them out so
+	// the GC can reclaim the underlying byte slices sooner.
+	message.Key = nil
+	message.Value = nil
+
 	// store to elasticsearch
 	for _, timber := range timberCollection.GetItems() {
 		ctx := context.Background()
@@ -313,6 +318,12 @@ func (s *baritoConsumerService) onStoreTimber(message *sarama.ConsumerMessage) {
 		err = s.esClient.Store(ctx, *timber)
 		if err != nil {
 			s.logError(errkit.Concat(ErrStore, err))
+			if errors.Is(err, ErrEnsureIndexRetryExhausted) {
+				// ES has been unreachable for too long. Halt all workers so the
+				// Kafka offset is NOT committed — the message will be re-consumed
+				// after recovery. This preserves zero data loss.
+				s.HaltAllWorker()
+			}
 			return
 		}
 

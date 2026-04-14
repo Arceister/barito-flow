@@ -3,9 +3,11 @@ package flow
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
+	"sync/atomic"
 
 	"github.com/BaritoLog/barito-flow/prome"
 
@@ -19,7 +21,9 @@ import (
 	"github.com/zekroTJA/timedmap"
 )
 
-var counter int = 0
+var counter atomic.Int64
+
+var ErrEnsureIndexRetryExhausted = errors.New("ensure index exists: max retries exhausted")
 
 const (
 	DEFAULT_ELASTIC_DOCUMENT_TYPE = "_doc"
@@ -46,6 +50,10 @@ type elasticClient struct {
 	dataStreamDefaultComponentTemplate string
 
 	redactor Redactor
+
+	// ensureIndexRetryInterval controls the sleep between ensureIndexIsExists
+	// retries. Defaults to 5s in production; can be overridden in tests.
+	ensureIndexRetryInterval time.Duration
 }
 
 type Redactor interface {
@@ -117,6 +125,7 @@ func NewElastic(retrierFunc *ElasticRetrier, esConfig esConfig, urls []string, e
 		redactor:                           &DummyRedactor{},
 		useDataStream:                      false,
 		dataStreamDefaultComponentTemplate: esConfig.dataStreamDefaultComponentTemplate,
+		ensureIndexRetryInterval:           5 * time.Second,
 	}
 
 	if esConfig.indexMethod == IndexMethodBulkProcessor {
@@ -170,10 +179,10 @@ func printThroughputPerSecond() {
 		for range t.C {
 			fmt.Println()
 			fmt.Println("-------------------------------------")
-			fmt.Println("PROCESSED:   ", counter)
+			fmt.Println("PROCESSED:   ", counter.Load())
 			fmt.Println("-------------------------------------")
 			fmt.Println()
-			counter = 0
+			counter.Store(0)
 		}
 	}()
 }
@@ -247,13 +256,19 @@ func (e *elasticClient) Store(ctx context.Context, timber pb.Timber) (err error)
 	documentType := DEFAULT_ELASTIC_DOCUMENT_TYPE
 	appSecret := timber.GetContext().GetAppSecret()
 
-	// ensure index is exists before push the logs
-	for {
+	// ensure index is exists before push the logs — bounded to 60 retries (5 min max).
+	// Returns ErrEnsureIndexRetryExhausted if ES remains unreachable, so the caller
+	// can halt workers without skipping the message.
+	const maxIndexRetries = 60
+	for i := 0; i < maxIndexRetries; i++ {
 		if e.ensureIndexIsExists(ctx, indexName) {
 			break
 		}
 		prome.IncreaseConsumerFailedToEnsureIndexExists(indexName)
-		time.Sleep(5 * time.Second)
+		if i == maxIndexRetries-1 {
+			return ErrEnsureIndexRetryExhausted
+		}
+		time.Sleep(e.ensureIndexRetryInterval)
 	}
 
 	document, err := ConvertTimberToEsDocumentString(timber, e.jspbMarshaler)
@@ -269,7 +284,7 @@ func (e *elasticClient) Store(ctx context.Context, timber pb.Timber) (err error)
 	}
 
 	err = e.onStoreFunc(ctx, indexName, documentType, redactDocument)
-	counter++
+	counter.Add(1)
 	instruESStore(appSecret, err)
 
 	return

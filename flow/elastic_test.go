@@ -39,24 +39,11 @@ func TestElasticStore_CreateIndexError(t *testing.T) {
 	client, err := NewElastic(retrier, esConfig, []string{ts.URL}, BARITO_DEFAULT_USERNAME, BARITO_DEFAULT_PASSWORD, nil)
 	FatalIfError(t, err)
 
-	// Run Store in goroutine since it will loop indefinitely
-	done := make(chan error, 1)
-	go func() {
-		err := client.Store(context.Background(), timber)
-		done <- err
-	}()
+	// Use a 1ms retry interval so the test completes quickly.
+	client.ensureIndexRetryInterval = 1 * time.Millisecond
 
-	// Wait for the first index creation failure to be recorded
-	// The Store method will keep retrying, but we just want to verify
-	// that the index creation failure is properly recorded
-	for i := 0; i < 50; i++ { // Wait up to 5 seconds
-		if instru.GetEventCount("es_create_index", "fail") >= 1 {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	// Verify that we got at least one create index failure
+	err = client.Store(context.Background(), timber)
+	FatalIf(t, err != ErrEnsureIndexRetryExhausted, "Store should return ErrEnsureIndexRetryExhausted when index creation always fails")
 	FatalIf(t, instru.GetEventCount("es_create_index", "fail") < 1, "should have at least one es_create_index.fail event")
 }
 

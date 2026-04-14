@@ -311,11 +311,14 @@ func TestHaltAllWorker(t *testing.T) {
 
 	service.HaltAllWorker()
 
-	FatalIf(t, !service.isHalt, "Consumer Worker should be halted")
-	FatalIf(t, !worker.IsStart(), "New Topic Event Worker should be halted")
+	// Allow goroutines to process the stop signal
+	time.Sleep(1 * time.Millisecond)
+
+	FatalIf(t, !service.isHalt, "Consumer service should be halted")
+	FatalIf(t, worker.IsStart(), "New Topic Event Worker should be stopped")
 
 	for _, w := range workerMap {
-		FatalIf(t, !w.IsStart(), "Worker should be halted")
+		FatalIf(t, w.IsStart(), "Worker should be stopped")
 	}
 }
 

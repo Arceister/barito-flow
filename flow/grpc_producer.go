@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/BaritoLog/barito-flow/flow/types"
@@ -14,8 +15,6 @@ import (
 	pb "github.com/bentol/barito-proto/producer"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-
-	_ "github.com/mostynb/go-grpc-compression/zstd"
 )
 
 const (
@@ -55,6 +54,7 @@ type producerService struct {
 	admin    types.KafkaAdmin
 	limiter  RateLimiter
 
+	mu           sync.Mutex
 	grpcServer   *grpc.Server
 	reverseProxy *http.Server
 }
@@ -136,7 +136,9 @@ func (s *producerService) initGrpcServer() (lis net.Listener, srv *grpc.Server, 
 	srv = grpc.NewServer(grpc.MaxRecvMsgSize(s.grpcMaxRecvMsgSize))
 	pb.RegisterProducerServer(srv, s)
 
+	s.mu.Lock()
 	s.grpcServer = srv
+	s.mu.Unlock()
 	return
 }
 
@@ -169,8 +171,11 @@ func (s *producerService) Close() {
 		s.reverseProxy.Close()
 	}
 
-	if s.grpcServer != nil {
-		s.grpcServer.GracefulStop()
+	s.mu.Lock()
+	grpcSrv := s.grpcServer
+	s.mu.Unlock()
+	if grpcSrv != nil {
+		grpcSrv.GracefulStop()
 	}
 
 	if s.limiter != nil {

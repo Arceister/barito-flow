@@ -169,6 +169,9 @@ func ObserveByteIngestionCollection(topic string, suffix string, timberCollectio
 }
 
 func ObserveRedactByteIngestion(appName string, doc string) {
+	if consumerRedactTotalLogBytesIngested == nil {
+		return
+	}
 	consumerRedactTotalLogBytesIngested.WithLabelValues(appName).Add(math.Round(float64(len(doc))))
 }
 

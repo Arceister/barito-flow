@@ -54,6 +54,7 @@ func ActionBaritoConsumerService(c *cli.Context) (err error) {
 	config.Consumer.Group.Heartbeat.Interval = time.Duration(configConsumerGroupHeartbeatInterval()) * time.Second
 	config.Consumer.MaxProcessingTime = time.Duration(configConsumerMaxProcessingTime()) * time.Millisecond
 	config.ChannelBufferSize = configConsumerChannelBufferSize()
+	config.Consumer.Fetch.Default = 256 * 1024 // limit fetch batch size to cap remainingLoop damage
 	if configConsumerRebalancingStrategy() == "RoundRobin" {
 		config.Consumer.Group.Rebalance.Strategy = sarama.BalanceStrategyRoundRobin
 	} else if configConsumerRebalancingStrategy() == "Range" {
@@ -147,8 +148,20 @@ func ActionBaritoProducerService(c *cli.Context) (err error) {
 	config.Producer.MaxMessageBytes = maxMessageBytes
 	config.Producer.Retry.Max = maxRetry
 	config.Producer.Return.Successes = true
-	config.Producer.Compression = sarama.CompressionZSTD
-	config.Producer.CompressionLevel = sarama.CompressionLevelDefault
+	switch configProducerCompressionCodec() {
+	case "gzip":
+		config.Producer.Compression = sarama.CompressionGZIP
+		config.Producer.CompressionLevel = sarama.CompressionLevelDefault
+	case "snappy":
+		config.Producer.Compression = sarama.CompressionSnappy
+	case "zstd":
+		config.Producer.Compression = sarama.CompressionZSTD
+		config.Producer.CompressionLevel = sarama.CompressionLevelDefault
+	case "none":
+		config.Producer.Compression = sarama.CompressionNone
+	default: // "lz4" and anything else
+		config.Producer.Compression = sarama.CompressionLZ4
+	}
 	config.Metadata.RefreshFrequency = 1 * time.Minute
 	config.Producer.Flush.Bytes = 16000
 	config.Producer.Flush.Frequency = 100 * time.Millisecond
